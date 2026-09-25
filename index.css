@@ -828,3 +828,68 @@ The .restart-button class and its absolute-positioning strategy.
     /* moves it left half of its own width to center it, then makes it 1.5 times bigger */
 	transform: translateX(-50%) scale(1.5);
 }
+
+/*
+Added by the incoming maintenance team (Project 2): styling for the new
+Game Mode / AI difficulty / auto-solve controls on the start screen, and for
+the turn indicator shown during multiplayer and vs-AI games.
+*/
+
+/* Row of Solo / 2 Player / Vs AI radio choices on the start screen */
+.mode-select {
+	display: none;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: .5rem;
+
+	position: relative;
+	left: -6.5vw;
+	margin: .75rem 0;
+
+	font-family: "Press Start 2P", monospace;
+	font-size: .65rem;
+	color: #222;
+}
+
+/* Single Solo / 2 Player / Vs AI choice */
+.mode-option {
+	display: flex;
+	align-items: center;
+	gap: .4rem;
+	cursor: pointer;
+}
+
+/* Difficulty dropdown + auto-solve checkbox, only shown when Vs AI is selected */
+.ai-options {
+	display: none;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: .5rem;
+	margin-top: .25rem;
+}
+
+.difficulty-select {
+	font-family: "Press Start 2P", monospace;
+	font-size: .6rem;
+}
+
+.auto-solve-label {
+	display: flex;
+	align-items: center;
+	gap: .4rem;
+	cursor: pointer;
+}
+
+/* Shows "Player 1's turn" / "AI's turn" / "Your turn" during multiplayer and vs-AI games */
+#turn-indicator {
+	display: none;
+	position: absolute;
+	left: 10%;
+	top: calc(48% - 21rem);
+	transform: translateX(-50%);
+
+	font-family: "Press Start 2P", monospace;
+	font-size: .8rem;
+	color: #222;
+	white-space: nowrap;
+}

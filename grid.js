@@ -121,6 +121,33 @@ function setTileNeighboringBombCounts(grid)
 }
 
 /*
+	Returns the in-bounds [x, y] coordinate pairs surrounding (x, y). Added by the
+	incoming maintenance team so the AI solver (ai.js) can inspect a revealed tile's
+	neighbors without duplicating the bounds-checking logic already used above.
+
+	inputs: x (int), y (int)
+	outputs: array of [x, y] coordinate pairs
+*/
+function getNeighborCoords(x, y)
+{
+	let neighbors = [];
+	for (let dx = -1; dx <= 1; dx++)
+	{
+		for (let dy = -1; dy <= 1; dy++)
+		{
+			if (dx === 0 && dy === 0) continue;
+			let nx = x + dx;
+			let ny = y + dy;
+			if (nx >= 0 && nx < grid_width && ny >= 0 && ny < grid_height)
+			{
+				neighbors.push([nx, ny]);
+			}
+		}
+	}
+	return neighbors;
+}
+
+/*
 	Simple function that will return B if a tile is a bomb and the # of surrounding bombs if not
 
 	inputs: tile (tile)

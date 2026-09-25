@@ -24,6 +24,7 @@
     <link rel="minesweeper tab icon" href="mine_bomb.png">
 
     <script src="grid.js"></script>
+    <script src="ai.js"></script>
     <script src="ui.js"></script>
 
     <link rel="stylesheet" href="index.css">
@@ -121,6 +122,10 @@
         <!--RPM-->
         <!-- container used for information next to the Minesweeper grid -->
         <div id="container-two"></div>
+
+        <!-- Added by the incoming maintenance team: shows whose turn it is in -->
+        <!-- multiplayer / player-vs-AI mode. Left empty/hidden in solo mode. -->
+        <div id="turn-indicator"></div>
 
         <!--RPM-->
         <!-- main container where JavaScript creates the Minesweeper grid -->

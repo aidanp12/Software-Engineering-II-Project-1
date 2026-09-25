@@ -124,6 +124,101 @@ addRestartButton().
 
 let currentMusic;
 
+/*
+Added by the incoming maintenance team (Project 2): shared state for the new
+Game Mode / AI Solver / Multiplayer features. These are plain module-level
+variables (matching the existing style of remaining_tiles/grid_height in
+grid.js) rather than being threaded through every function call.
+*/
+let gameMode = "solo";       // "solo" | "multiplayer" | "vsai"
+let aiDifficulty = "medium"; // "easy" | "medium" | "hard"
+let aiAutoSolve = false;
+let activePlayer = "player"; // 1 | 2 for multiplayer, "player" | "ai" for vsai
+let boardLocked = false;     // true while the board should ignore clicks (AI's turn / auto-solve)
+let autoSolveTimer = null;
+
+// Stops any in-progress AI auto-solve loop (e.g. once the game ends).
+function stopAutoSolve() {
+	if (autoSolveTimer !== null) {
+		clearInterval(autoSolveTimer);
+		autoSolveTimer = null;
+	}
+}
+
+// Reflects the current turn/mode in the #turn-indicator element.
+function updateTurnIndicator() {
+	const indicator = document.getElementById("turn-indicator");
+	if (!indicator) return;
+
+	if (gameMode === "multiplayer") {
+		indicator.textContent = "Player " + activePlayer + "'s turn";
+		indicator.style.display = "block";
+	} else if (gameMode === "vsai" && aiAutoSolve) {
+		indicator.textContent = "AI is auto-solving (" + aiDifficulty + ")...";
+		indicator.style.display = "block";
+	} else if (gameMode === "vsai") {
+		indicator.textContent = activePlayer === "ai" ? "AI's turn (" + aiDifficulty + ")..." : "Your turn";
+		indicator.style.display = "block";
+	} else {
+		indicator.style.display = "none";
+	}
+}
+
+/*
+	Handles what happens after a human move (reveal or flag): re-renders the
+	board if the game is still going, then hands the turn to the next
+	player/AI depending on gameMode. Centralizing this here keeps the
+	multiplayer/AI turn logic out of render()'s click handlers.
+*/
+function finishTurn(grid, bombs, result) {
+	if (!win_loss_continue(result, grid)) {
+		stopAutoSolve();
+		return;
+	}
+	render(grid, bombs, false);
+	advanceTurn(grid, bombs);
+}
+
+// Switches turns for multiplayer, or triggers the AI's turn for interactive vsai mode.
+function advanceTurn(grid, bombs) {
+	if (gameMode === "multiplayer") {
+		activePlayer = activePlayer === 1 ? 2 : 1;
+		updateTurnIndicator();
+		return;
+	}
+
+	if (gameMode === "vsai" && !aiAutoSolve) {
+		activePlayer = "ai";
+		boardLocked = true;
+		updateTurnIndicator();
+
+		setTimeout(() => {
+			const aiResult = aiTakeTurn(grid, aiDifficulty);
+			if (!win_loss_continue(aiResult, grid)) {
+				return;
+			}
+			render(grid, bombs, false);
+			activePlayer = "player";
+			boardLocked = false;
+			updateTurnIndicator();
+		}, 700);
+	}
+}
+
+// Drives an entire game with the AI playing every turn and no player input.
+function runAutoSolve(grid, bombs) {
+	boardLocked = true;
+	updateTurnIndicator();
+
+	autoSolveTimer = setInterval(() => {
+		const result = aiTakeTurn(grid, aiDifficulty);
+		if (!win_loss_continue(result, grid)) {
+			stopAutoSolve();
+			return;
+		}
+		render(grid, bombs, false);
+	}, 500);
+}
 
 function win_loss_continue(input,grid) { //helps return the function lose and win - Johney 09/16
 	if (input === "Game Over: Loss") {
@@ -184,7 +279,8 @@ function lose(grid) {
 		// After fade finishes, show message
 		setTimeout(() => {
 			const message = document.createElement("p");
-			message.textContent = "you just lost the game.";
+			// Added: name the player/AI that hit the mine when in multiplayer or vs-AI mode
+			message.textContent = lossMessage();
 			blackScreen.appendChild(message);
 
 			// Then show restart button
@@ -196,11 +292,23 @@ function lose(grid) {
 
 	}, 1500);
 }
+// Added by the incoming maintenance team: tailors the loss message to the active mode/player.
+function lossMessage() {
+	if (gameMode === "multiplayer") return "Player " + activePlayer + " hit a mine and lost!";
+	if (gameMode === "vsai") return activePlayer === "ai" ? "The AI hit a mine!" : "you just lost the game.";
+	return "you just lost the game.";
+}
 //same as lose(), but displays you win instead - Johney 09/16
 function win() {
 	let container = resetScreen();
-	container.textContent = "You win!";
+	container.textContent = winMessage();
 	addRestartButton(container);
+}
+// Added by the incoming maintenance team: tailors the win message to the active mode/player.
+function winMessage() {
+	if (gameMode === "multiplayer") return "You win! (Board cleared as a team)";
+	if (gameMode === "vsai") return activePlayer === "ai" ? "The AI cleared the board!" : "You win!";
+	return "You win!";
 }
 //restart button to have the user get back to the start screen, rather than having the user manually refresh the screen - Johney09/16
 function addRestartButton(container) {
@@ -233,10 +341,25 @@ function resetScreen() {
 
 */
 
-function startup(bombs) {
+function startup(bombs, options) {
+	// options ({ mode, difficulty, autoSolve }) added by the incoming maintenance
+	// team so the same startup() can launch solo, multiplayer, or vs-AI games.
+	const opts = options || {};
+	gameMode = opts.mode || "solo";
+	aiDifficulty = opts.difficulty || "medium";
+	aiAutoSolve = !!opts.autoSolve;
+	activePlayer = gameMode === "multiplayer" ? 1 : "player";
+	boardLocked = false;
+	stopAutoSolve();
+
 	console.log(bombs);
 	const grid = buildGrid(10, 10, bombs); // height is 10, width is 10, and number of bombs is however many the user types (between 10-20) - Johney 09/16
 	render(grid, bombs, true); //calls render, hands render 3 things: the built grid, the bombs count, and true for first run - Johney 09/16
+	updateTurnIndicator();
+
+	if (gameMode === "vsai" && aiAutoSolve) {
+		runAutoSolve(grid, bombs);
+	}
 }
 // this waits for the page load - Dainel; 09/15.
 // because otherwise we try to manipulate the dom before - Dainel; 09/15.
@@ -302,6 +425,7 @@ window.addEventListener("load", () => {
 			input.style.display = "block";
 			button.style.display = "block";
 			titlebar.style.display = "block";
+			modeSelect.style.display = "flex"; // Added: reveal the game-mode controls alongside the rest
 		}, 3000);
 
 		gameStarted = true;
@@ -378,8 +502,70 @@ window.addEventListener("load", () => {
 	input.type = "number"
 
 	button.textContent = "START";
+
+	/*
+	Added by the incoming maintenance team (Project 2): lets the player choose
+	between Solo play, local 2-Player alternating-turn multiplayer, and Player
+	vs AI (with a difficulty and an optional "AI plays automatically" mode).
+	*/
+	const modeSelect = document.createElement("div");
+	modeSelect.className = "mode-select";
+	modeSelect.style.display = "none";
+
+	let selectedMode = "solo";
+	const modeOptions = [
+		{ value: "solo", label: "Solo" },
+		{ value: "multiplayer", label: "2 Player" },
+		{ value: "vsai", label: "Vs AI" }
+	];
+
+	const aiOptions = document.createElement("div");
+	aiOptions.className = "ai-options";
+	aiOptions.style.display = "none";
+
+	modeOptions.forEach((opt, idx) => {
+		const optionLabel = document.createElement("label");
+		optionLabel.className = "mode-option";
+
+		const radio = document.createElement("input");
+		radio.type = "radio";
+		radio.name = "gamemode";
+		radio.value = opt.value;
+		radio.checked = idx === 0;
+		radio.addEventListener("change", () => {
+			selectedMode = opt.value;
+			aiOptions.style.display = selectedMode === "vsai" ? "flex" : "none";
+		});
+
+		optionLabel.appendChild(radio);
+		optionLabel.appendChild(document.createTextNode(opt.label));
+		modeSelect.appendChild(optionLabel);
+	});
+
+	const difficultySelect = document.createElement("select");
+	difficultySelect.className = "difficulty-select";
+	["easy", "medium", "hard"].forEach((level) => {
+		const option = document.createElement("option");
+		option.value = level;
+		option.textContent = level.toUpperCase();
+		if (level === "medium") option.selected = true;
+		difficultySelect.appendChild(option);
+	});
+	aiOptions.appendChild(difficultySelect);
+
+	const autoSolveLabel = document.createElement("label");
+	autoSolveLabel.className = "auto-solve-label";
+	const autoSolveCheckbox = document.createElement("input");
+	autoSolveCheckbox.type = "checkbox";
+	autoSolveLabel.appendChild(autoSolveCheckbox);
+	autoSolveLabel.appendChild(document.createTextNode(" AI plays automatically"));
+	aiOptions.appendChild(autoSolveLabel);
+
+	modeSelect.appendChild(aiOptions);
+
 	container.appendChild(titlebar)
 	container.appendChild(bonusInstuctions)
+	container.appendChild(modeSelect);
 	container.appendChild(input);
 	container.appendChild(button);
 //Only start the game if the entered mine count is between 10 and 20; - Johney 09/16
@@ -428,7 +614,12 @@ window.addEventListener("load", () => {
 			).forEach(element => {
 				element.style.display = "none";
 			});
-			startup(input.value);
+			modeSelect.style.display = "none"; // Added: hide the mode controls once the game starts
+			startup(input.value, {
+				mode: selectedMode,
+				difficulty: difficultySelect.value,
+				autoSolve: autoSolveCheckbox.checked
+			});
 		}
 		else{
 			bonusInstuctions.className = "out-of-range-message"
@@ -582,6 +773,8 @@ function render(grid, bombs, first_run) {
 				}
 
 			button.addEventListener("click", () => {
+				if (boardLocked) return; // Added: ignore clicks during the AI's turn / auto-solve
+
 				// if this is the first click and we have clicked on a bomb - Daniel 09/15
 				if(first_run && tile.isBomb == true){
 					// if this is a mine get a list of all non mine cells that are not this cell - Daniel 09/15
@@ -590,25 +783,24 @@ function render(grid, bombs, first_run) {
 					tile.isBomb = false;
 					// set one of the non mine cells to a mine cell - Daniel 09/15
 					nonbombs[Math.floor(Math.random() * (nonbombs.length-0)-0)].isBomb = true;
+					// Bug fix (incoming maintenance team): relocating the mine invalidated every
+					// tile's cached numSurroundingBombs, so the numbers shown on the board could
+					// be wrong for the rest of the game. Recompute them before revealing anything.
+					setTileNeighboringBombCounts(grid);
 				}
 				const result = revealTile(grid, i, x); //Only redraw if the game is still in progress; otherwise leave the win/loss screen (set by win_loss_continue) up - Johney 09/16
 
-				if(win_loss_continue(result, grid)){
-				render(grid, bombs, false);
-				}
-				else{
-					return;
-				}
+				finishTurn(grid, bombs, result); // Added: also advances multiplayer/AI turns
 			});
 			button.addEventListener("contextmenu", (e) => {
 				// prevent the right click menu from actually opening - Daniel 09/15
 				e.preventDefault();
+				if (boardLocked) return; // Added: ignore clicks during the AI's turn / auto-solve
 
 				if (!tile.isFlipped && (!tile.isFlagged && flags < bombs || tile.isFlagged)) {
 					flagTile(grid, i, x);
+					finishTurn(grid, bombs, "Playing"); // Added: flagging also passes the turn
 				}
-
-				render(grid, bombs, false);
 			});
 		}
 		//Row letter label (A-J) from numtoLetter() - variablle is named "column" - Johney 09/16
