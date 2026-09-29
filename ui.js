@@ -133,9 +133,18 @@ grid.js) rather than being threaded through every function call.
 let gameMode = "solo";       // "solo" | "multiplayer" | "vsai"
 let aiDifficulty = "medium"; // "easy" | "medium" | "hard"
 let aiAutoSolve = false;
-let activePlayer = "player"; // 1 | 2 for multiplayer, "player" | "ai" for vsai
+let activePlayer = 1;        // 1 (red) or 2 (blue); in vs-AI mode player 2 is the AI
 let boardLocked = false;     // true while the board should ignore clicks (AI's turn / auto-solve)
 let autoSolveTimer = null;
+let endMode = "death";       // "points" | "death"
+let scores = { 1: 0, 2: 0 };
+const BOMB_PENALTY = 3;
+const PLAYER_COLORS = { 1: "red", 2: "blue" };
+
+function playerName(p) {
+	if (gameMode === "vsai") return p === 1 ? "You" : "AI";
+	return "Player " + p;
+}
 
 // Stops any in-progress AI auto-solve loop (e.g. once the game ends).
 function stopAutoSolve() {
@@ -150,18 +159,29 @@ function updateTurnIndicator() {
 	const indicator = document.getElementById("turn-indicator");
 	if (!indicator) return;
 
-	if (gameMode === "multiplayer") {
-		indicator.textContent = "Player " + activePlayer + "'s turn";
-		indicator.style.display = "block";
-	} else if (gameMode === "vsai" && aiAutoSolve) {
-		indicator.textContent = "AI is auto-solving (" + aiDifficulty + ")...";
-		indicator.style.display = "block";
-	} else if (gameMode === "vsai") {
-		indicator.textContent = activePlayer === "ai" ? "AI's turn (" + aiDifficulty + ")..." : "Your turn";
-		indicator.style.display = "block";
-	} else {
+	document.body.classList.remove("turn-p1", "turn-p2");
+	if (gameMode === "solo") {
 		indicator.style.display = "none";
+		return;
 	}
+
+	indicator.style.display = "block";
+	if (aiAutoSolve) {
+		indicator.textContent = "AI is auto-solving (" + aiDifficulty + ")...";
+		indicator.style.color = "#222";
+		return;
+	}
+
+	// The body background fades to the active player's color via CSS.
+	document.body.classList.add("turn-p" + activePlayer);
+	let text = gameMode === "vsai"
+		? (activePlayer === 1 ? "Your turn" : "AI's turn (" + aiDifficulty + ")...")
+		: "Player " + activePlayer + "'s turn";
+	if (endMode === "points") {
+		text += "\nScore - " + playerName(1) + ": " + scores[1] + "  " + playerName(2) + ": " + scores[2];
+	}
+	indicator.textContent = text;
+	indicator.style.color = PLAYER_COLORS[activePlayer];
 }
 
 /*
@@ -179,44 +199,66 @@ function finishTurn(grid, bombs, result) {
 	advanceTurn(grid, bombs);
 }
 
-// Switches turns for multiplayer, or triggers the AI's turn for interactive vsai mode.
-function advanceTurn(grid, bombs) {
-	if (gameMode === "multiplayer") {
-		activePlayer = activePlayer === 1 ? 2 : 1;
-		updateTurnIndicator();
-		return;
+// Reveals one tile. In points mode a bomb costs the active player points instead of ending the game.
+function applyReveal(grid, x, y) {
+	const tile = grid[x][y];
+	if (endMode === "points" && tile.isBomb && !tile.isFlagged && !tile.isFlipped) {
+		tile.isFlipped = true;
+		scores[activePlayer] -= BOMB_PENALTY;
+		return "Playing";
 	}
+	return revealTile(grid, x, y);
+}
 
-	if (gameMode === "vsai" && !aiAutoSolve) {
-		activePlayer = "ai";
-		boardLocked = true;
-		updateTurnIndicator();
+// Flag points are only awarded once every safe tile has been revealed.
+function awardFlagPoints(grid) {
+	grid.flat().forEach((tile) => {
+		if (tile.isFlagged && tile.isBomb && tile.flagOwner) {
+			scores[tile.flagOwner] += 1;
+		}
+	});
+}
 
-		setTimeout(() => {
-			const aiResult = aiTakeTurn(grid, aiDifficulty);
-			if (!win_loss_continue(aiResult, grid)) {
-				return;
-			}
-			render(grid, bombs, false);
-			activePlayer = "player";
-			boardLocked = false;
-			updateTurnIndicator();
-		}, 700);
+// Performs one AI action (flag or reveal) and returns the resulting game state string.
+function performAiAction(grid, action) {
+	if (action.type === "flag") {
+		flagTile(grid, action.x, action.y, activePlayer);
+		return "Playing";
+	}
+	return applyReveal(grid, action.x, action.y);
+}
+
+function takeAiAction(grid, bombs) {
+	const action = aiChooseAction(grid, aiDifficulty, bombs);
+	finishTurn(grid, bombs, action ? performAiAction(grid, action) : "Playing");
+}
+
+// Passes the turn after a reveal: player 1 <-> player 2 (or the AI in vs-AI mode).
+function advanceTurn(grid, bombs) {
+	if (gameMode === "solo" || aiAutoSolve) return;
+
+	activePlayer = activePlayer === 1 ? 2 : 1;
+	const aiTurn = gameMode === "vsai" && activePlayer === 2;
+	boardLocked = aiTurn;
+	updateTurnIndicator();
+
+	if (aiTurn) {
+		setTimeout(() => takeAiAction(grid, bombs), 700);
 	}
 }
 
-// Drives an entire game with the AI playing every turn and no player input.
+// Drives an entire game with the AI taking one action per tick and no player input.
 function runAutoSolve(grid, bombs) {
 	boardLocked = true;
 	updateTurnIndicator();
 
 	autoSolveTimer = setInterval(() => {
-		const result = aiTakeTurn(grid, aiDifficulty);
-		if (!win_loss_continue(result, grid)) {
+		const action = aiChooseAction(grid, aiDifficulty, bombs);
+		if (!action) {
 			stopAutoSolve();
 			return;
 		}
-		render(grid, bombs, false);
+		finishTurn(grid, bombs, performAiAction(grid, action));
 	}, 500);
 }
 
@@ -226,7 +268,7 @@ function win_loss_continue(input,grid) { //helps return the function lose and wi
 		return false;
 	}
 	if (input === "Victory") {
-		win()
+		win(grid)
 		return false;
 	} else {
 		return true
@@ -294,20 +336,30 @@ function lose(grid) {
 }
 // Added by the incoming maintenance team: tailors the loss message to the active mode/player.
 function lossMessage() {
-	if (gameMode === "multiplayer") return "Player " + activePlayer + " hit a mine and lost!";
-	if (gameMode === "vsai") return activePlayer === "ai" ? "The AI hit a mine!" : "you just lost the game.";
+	if (aiAutoSolve) return "The AI hit a mine!";
+	if (gameMode === "multiplayer") return "Player " + activePlayer + " hit a mine! Player " + (3 - activePlayer) + " wins!";
+	if (gameMode === "vsai") return activePlayer === 1 ? "You hit a mine. The AI wins!" : "The AI hit a mine. You win!";
 	return "you just lost the game.";
 }
 //same as lose(), but displays you win instead - Johney 09/16
-function win() {
+function win(grid) {
+	document.body.classList.remove("turn-p1", "turn-p2");
 	let container = resetScreen();
-	container.textContent = winMessage();
+	container.textContent = winMessage(grid);
 	addRestartButton(container);
 }
-// Added by the incoming maintenance team: tailors the win message to the active mode/player.
-function winMessage() {
-	if (gameMode === "multiplayer") return "You win! (Board cleared as a team)";
-	if (gameMode === "vsai") return activePlayer === "ai" ? "The AI cleared the board!" : "You win!";
+// Added by the incoming maintenance team: builds the win message (and final tally in points mode).
+function winMessage(grid) {
+	if (endMode === "points") {
+		awardFlagPoints(grid);
+		const tally = playerName(1) + ": " + scores[1] + "  " + playerName(2) + ": " + scores[2];
+		if (scores[1] === scores[2]) return "Tie game! " + tally;
+		const winner = scores[1] > scores[2] ? 1 : 2;
+		return (winner === 1 && gameMode === "vsai" ? "You win!" : playerName(winner) + " wins!") + " " + tally;
+	}
+	if (aiAutoSolve) return "The AI cleared the board!";
+	if (gameMode === "multiplayer") return "Board cleared - both players win!";
+	if (gameMode === "vsai") return "You and the AI cleared the board!";
 	return "You win!";
 }
 //restart button to have the user get back to the start screen, rather than having the user manually refresh the screen - Johney09/16
@@ -347,8 +399,10 @@ function startup(bombs, options) {
 	const opts = options || {};
 	gameMode = opts.mode || "solo";
 	aiDifficulty = opts.difficulty || "medium";
-	aiAutoSolve = !!opts.autoSolve;
-	activePlayer = gameMode === "multiplayer" ? 1 : "player";
+	aiAutoSolve = gameMode === "vsai" && !!opts.autoSolve;
+	endMode = (gameMode === "solo" || aiAutoSolve) ? "death" : (opts.endMode || "death");
+	scores = { 1: 0, 2: 0 };
+	activePlayer = aiAutoSolve ? 2 : 1;
 	boardLocked = false;
 	stopAutoSolve();
 
@@ -523,6 +577,25 @@ window.addEventListener("load", () => {
 	aiOptions.className = "ai-options";
 	aiOptions.style.display = "none";
 
+	// Win condition for 2-player and vs-AI games.
+	let selectedEndMode = "points";
+	const ruleOptions = document.createElement("div");
+	ruleOptions.className = "ai-options";
+	ruleOptions.style.display = "none";
+	[{ value: "points", label: "Points" }, { value: "death", label: "Instant death" }].forEach((opt, idx) => {
+		const optionLabel = document.createElement("label");
+		optionLabel.className = "mode-option";
+		const radio = document.createElement("input");
+		radio.type = "radio";
+		radio.name = "endmode";
+		radio.value = opt.value;
+		radio.checked = idx === 0;
+		radio.addEventListener("change", () => { selectedEndMode = opt.value; });
+		optionLabel.appendChild(radio);
+		optionLabel.appendChild(document.createTextNode(opt.label));
+		ruleOptions.appendChild(optionLabel);
+	});
+
 	modeOptions.forEach((opt, idx) => {
 		const optionLabel = document.createElement("label");
 		optionLabel.className = "mode-option";
@@ -535,6 +608,7 @@ window.addEventListener("load", () => {
 		radio.addEventListener("change", () => {
 			selectedMode = opt.value;
 			aiOptions.style.display = selectedMode === "vsai" ? "flex" : "none";
+			ruleOptions.style.display = selectedMode === "solo" ? "none" : "flex";
 		});
 
 		optionLabel.appendChild(radio);
@@ -561,6 +635,7 @@ window.addEventListener("load", () => {
 	autoSolveLabel.appendChild(document.createTextNode(" AI plays automatically"));
 	aiOptions.appendChild(autoSolveLabel);
 
+	modeSelect.appendChild(ruleOptions);
 	modeSelect.appendChild(aiOptions);
 
 	container.appendChild(titlebar)
@@ -618,7 +693,8 @@ window.addEventListener("load", () => {
 			startup(input.value, {
 				mode: selectedMode,
 				difficulty: difficultySelect.value,
-				autoSolve: autoSolveCheckbox.checked
+				autoSolve: autoSolveCheckbox.checked,
+				endMode: selectedEndMode
 			});
 		}
 		else{
@@ -746,6 +822,11 @@ function render(grid, bombs, first_run) {
 				button.classList.add("hidden-tile");
 				if (tile.isFlagged) {
 					button.textContent = "🚩";
+					if (tile.flagOwner !== null) {
+						// Text flag glyph so it can be tinted with the owning player's color.
+						button.textContent = "⚑";
+						button.classList.add("flag-p" + tile.flagOwner);
+					}
 					flags += 1;
 				}
 				} else {
@@ -773,7 +854,7 @@ function render(grid, bombs, first_run) {
 				}
 
 			button.addEventListener("click", () => {
-				if (boardLocked) return; // Added: ignore clicks during the AI's turn / auto-solve
+				if (boardLocked || tile.isFlipped || tile.isFlagged) return; // ignore AI turns and no-op clicks
 
 				// if this is the first click and we have clicked on a bomb - Daniel 09/15
 				if(first_run && tile.isBomb == true){
@@ -788,19 +869,26 @@ function render(grid, bombs, first_run) {
 					// be wrong for the rest of the game. Recompute them before revealing anything.
 					setTileNeighboringBombCounts(grid);
 				}
-				const result = revealTile(grid, i, x); //Only redraw if the game is still in progress; otherwise leave the win/loss screen (set by win_loss_continue) up - Johney 09/16
+				const result = applyReveal(grid, i, x); //Only redraw if the game is still in progress; otherwise leave the win/loss screen (set by win_loss_continue) up - Johney 09/16
 
 				finishTurn(grid, bombs, result); // Added: also advances multiplayer/AI turns
 			});
 			button.addEventListener("contextmenu", (e) => {
 				// prevent the right click menu from actually opening - Daniel 09/15
 				e.preventDefault();
-				if (boardLocked) return; // Added: ignore clicks during the AI's turn / auto-solve
+				if (boardLocked || tile.isFlipped) return;
 
-				if (!tile.isFlipped && (!tile.isFlagged && flags < bombs || tile.isFlagged)) {
+				if (tile.isFlagged) {
+					// An opponent's flag is locked in.
+					if (tile.flagOwner !== null && tile.flagOwner !== activePlayer) return;
 					flagTile(grid, i, x);
-					finishTurn(grid, bombs, "Playing"); // Added: flagging also passes the turn
+				} else if (flags < bombs) {
+					flagTile(grid, i, x, gameMode === "solo" ? null : activePlayer);
+				} else {
+					return;
 				}
+				// Flagging is a free action: redraw without passing the turn.
+				render(grid, bombs, first_run);
 			});
 		}
 		//Row letter label (A-J) from numtoLetter() - variablle is named "column" - Johney 09/16

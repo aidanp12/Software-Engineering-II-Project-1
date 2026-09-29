@@ -13,6 +13,7 @@ class Tile {
 	{
 		this.isFlipped = false;
     		this.isFlagged = false;
+		this.flagOwner = null; // player number (1/2) who placed the flag, null in solo play
 		this.isBomb = false;
 		this.numSurroundingBombs = null;
 	}
@@ -226,7 +227,7 @@ function revealTile(grid, xCord, yCord)
 }
 
 // Flagging a tile
-function flagTile(grid, xCord, yCord)
+function flagTile(grid, xCord, yCord, owner = null)
 {
 	// revealed tiles cannot be flagged
 	if (grid[xCord][yCord].isFlipped)
@@ -235,10 +236,12 @@ function flagTile(grid, xCord, yCord)
 	}
   if (grid[xCord][yCord].isFlagged){
     grid[xCord][yCord].isFlagged = false; // flagging a flagged tile = unflagged tile
+    grid[xCord][yCord].flagOwner = null;
   }
   else
   {
     grid[xCord][yCord].isFlagged = true; 
+    grid[xCord][yCord].flagOwner = owner;
   }
   return;
 }

@@ -39,9 +39,25 @@
 /* styles below were worked on by RPM unless another set of initials is listed */
 
 /* Color of the webpage */
-body {
-	background-color: #ebedfd;
+@property --bg-color {
+	syntax: "<color>";
+	inherits: false;
+	initial-value: #ebedfd;
 }
+
+body {
+	--bg-color: #ebedfd;
+	background-color: var(--bg-color);
+	/* Registered custom property lets the background color animate smoothly */
+	transition: --bg-color 1s ease;
+}
+
+body.turn-p1 { --bg-color: #ff8a8a; }
+body.turn-p2 { --bg-color: #8ab4ff; }
+
+.flag-p1 { color: red; }
+.flag-p2 { color: blue; }
+.hidden-tile.flag-p1, .hidden-tile.flag-p2 { font-size: 1.4rem; }
 
 /*
 AI USE — opening title special effects
@@ -891,5 +907,6 @@ the turn indicator shown during multiplayer and vs-AI games.
 	font-family: "Press Start 2P", monospace;
 	font-size: .8rem;
 	color: #222;
-	white-space: nowrap;
+	white-space: pre;
+	text-align: center;
 }
