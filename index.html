@@ -123,14 +123,13 @@
         <!-- container used for information next to the Minesweeper grid -->
         <div id="container-two"></div>
 
-        <!-- Added by the incoming maintenance team: shows whose turn it is in -->
-        <!-- multiplayer / player-vs-AI mode. Left empty/hidden in solo mode. -->
-        <div id="turn-indicator"></div>
-
         <!--RPM-->
         <!-- main container where JavaScript creates the Minesweeper grid -->
         <div id="main-container" class="grid-stack"></div>
     </div>
+
+    <!-- Scoreboard for 2-player / vs-AI games. Outside #game-area so the screen shake doesn't move it. -->
+    <div id="turn-indicator"></div>
 
 </body>
 

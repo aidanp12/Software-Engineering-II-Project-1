@@ -53,9 +53,9 @@ changed, and the page background fades to the active player's color.
 Two win conditions can be chosen at the start screen:
 - **Instant death** – whoever uncovers a mine loses immediately; clearing the board
   makes both sides winners.
-- **Points** – uncovering a mine costs that player 3 points and play continues. Each
-  flag on a real mine is worth 1 point, awarded once every safe tile is revealed. The
-  highest score wins.
+- **Points** – uncovering a mine costs that player 3 points and play continues. The
+  round ends once every tile is either revealed or flagged. Then each flag is scored
+  for its owner: +1 on a real mine, -2 on a safe tile. The highest score wins.
 
 #### UML Sequence Diagram – Multiplayer Turn Alternation
 

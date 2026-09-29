@@ -140,6 +140,8 @@ let endMode = "death";       // "points" | "death"
 let scores = { 1: 0, 2: 0 };
 const BOMB_PENALTY = 3;
 const PLAYER_COLORS = { 1: "red", 2: "blue" };
+const FLAG_SPRITES = { 1: "flag_red.png", 2: "flag_blue.png" };
+const WRONG_FLAG_PENALTY = 2;
 let firstRevealPending = true; // the first reveal of a game is guaranteed to be a zero tile
 let pendingExplosion = null;   // [x, y] of a bomb that was just uncovered
 
@@ -198,9 +200,11 @@ function dropEverythingOffScreen() {
 	document.querySelectorAll("#main-container .icon-thing, #container-two .flag-counter > *").forEach((el) => fallers.push(el));
 
 	fallers.forEach((el) => {
+		if (Math.random() > 0.3) return; // only about 30% of characters fall; the rest stay put
 		if (getComputedStyle(el).display === "inline") el.style.display = "inline-block";
 		const rect = el.getBoundingClientRect();
-		el.style.setProperty("--fall-distance", Math.max(0, window.innerHeight - rect.bottom) + "px");
+		// Far enough to leave the window entirely, not just reach its bottom edge.
+		el.style.setProperty("--fall-distance", Math.max(0, window.innerHeight - rect.top + 80) + "px");
 		el.style.setProperty("--fall-drift", (Math.random() * 60 - 30) + "px");
 		el.style.setProperty("--fall-rotation", (Math.random() * 720 - 360) + "deg");
 		const duration = (0.8 + Math.random() * 0.6).toFixed(2);
@@ -222,34 +226,68 @@ function stopAutoSolve() {
 	}
 }
 
-// Reflects the current turn/mode in the #turn-indicator element.
+// Top-left counter flag: the active player's color in 2-player games, red everywhere else.
+function counterFlagSrc() {
+	return gameMode === "multiplayer" && !aiAutoSolve ? FLAG_SPRITES[activePlayer] : "flag_red.png";
+}
+
+// One player's panel on the scoreboard, colored to match that player's flags.
+function buildScoreCard(p) {
+	const active = p === activePlayer;
+	const card = document.createElement("div");
+	card.className = "score-card p" + p + (active ? " active" : "");
+
+	const head = document.createElement("div");
+	head.className = "score-head";
+	head.appendChild(spriteImg(FLAG_SPRITES[p], "score-sprite"));
+	const name = document.createElement("span");
+	name.textContent = gameMode === "vsai" && p === 2 ? "AI (" + aiDifficulty + ")" : playerName(p);
+	head.appendChild(name);
+	card.appendChild(head);
+
+	if (endMode === "points") {
+		const value = document.createElement("div");
+		value.className = "score-value";
+		value.textContent = scores[p];
+		card.appendChild(value);
+	}
+
+	const status = document.createElement("div");
+	status.className = "score-status";
+	status.textContent = active ? "▶ Your move" : "Waiting";
+	if (active && gameMode === "vsai" && p === 2) status.textContent = "▶ Thinking";
+	card.appendChild(status);
+	return card;
+}
+
+// Reflects the current turn/mode in the #turn-indicator scoreboard.
 function updateTurnIndicator() {
 	const indicator = document.getElementById("turn-indicator");
 	if (!indicator) return;
 
+	const counterImg = document.querySelector("#container-two .counter-sprite");
+	if (counterImg) counterImg.src = counterFlagSrc();
+
 	document.body.classList.remove("turn-p1", "turn-p2");
+	indicator.textContent = "";
 	if (gameMode === "solo") {
 		indicator.style.display = "none";
 		return;
 	}
 
-	indicator.style.display = "block";
+	indicator.style.display = "flex";
 	if (aiAutoSolve) {
-		indicator.textContent = "AI is auto-solving (" + aiDifficulty + ")...";
-		indicator.style.color = "#222";
+		const note = document.createElement("div");
+		note.className = "score-note";
+		note.textContent = "AI auto-solving (" + aiDifficulty + ")";
+		indicator.appendChild(note);
 		return;
 	}
 
 	// The body background fades to the active player's color via CSS.
 	document.body.classList.add("turn-p" + activePlayer);
-	let text = gameMode === "vsai"
-		? (activePlayer === 1 ? "Your turn" : "AI's turn (" + aiDifficulty + ")...")
-		: "Player " + activePlayer + "'s turn";
-	if (endMode === "points") {
-		text += "\nScore - " + playerName(1) + ": " + scores[1] + "  " + playerName(2) + ": " + scores[2];
-	}
-	indicator.textContent = text;
-	indicator.style.color = PLAYER_COLORS[activePlayer];
+	indicator.appendChild(buildScoreCard(1));
+	indicator.appendChild(buildScoreCard(2));
 }
 
 /*
@@ -259,6 +297,10 @@ function updateTurnIndicator() {
 	multiplayer/AI turn logic out of render()'s click handlers.
 */
 function finishTurn(grid, bombs, result) {
+	// In 2-player and vs-AI games the round ends once every tile is revealed or flagged.
+	if (result !== "Game Over: Loss" && gameMode !== "solo" && !aiAutoSolve) {
+		result = grid.flat().every((tile) => tile.isFlipped || tile.isFlagged) ? "Victory" : "Playing";
+	}
 	if (!win_loss_continue(result, grid)) {
 		stopAutoSolve();
 		return;
@@ -285,11 +327,11 @@ function applyReveal(grid, x, y) {
 	return revealTile(grid, x, y);
 }
 
-// Flag points are only awarded once every safe tile has been revealed.
+// Flag scoring, applied once at the end: +1 per flag on a mine, -2 per flag on a safe tile.
 function awardFlagPoints(grid) {
 	grid.flat().forEach((tile) => {
-		if (tile.isFlagged && tile.isBomb && tile.flagOwner) {
-			scores[tile.flagOwner] += 1;
+		if (tile.isFlagged && tile.flagOwner) {
+			scores[tile.flagOwner] += tile.isBomb ? 1 : -WRONG_FLAG_PENALTY;
 		}
 	});
 }
@@ -451,28 +493,46 @@ function lossMessage() {
 //same as lose(), but displays you win instead - Johney 09/16
 function win(grid) {
 	document.body.classList.remove("turn-p1", "turn-p2");
-	let container = resetScreen();
-	container.textContent = winMessage(grid);
-	addRestartButton(container);
+	document.getElementById("turn-indicator").style.display = "none";
+	const container = resetScreen();
+	container.className = "end-screen";
+
+	const summary = winSummary(grid);
+	const headline = document.createElement("p");
+	headline.className = "end-headline";
+	headline.textContent = summary.headline;
+	container.appendChild(headline);
+
+	summary.scores.forEach((entry) => {
+		const line = document.createElement("p");
+		line.className = "end-score";
+		line.style.color = PLAYER_COLORS[entry.player];
+		line.textContent = entry.text;
+		container.appendChild(line);
+	});
+	addRestartButton(container, true);
 }
-// Added by the incoming maintenance team: builds the win message (and final tally in points mode).
-function winMessage(grid) {
+// Added by the incoming maintenance team: headline plus per-player final scores (points mode only).
+function winSummary(grid) {
 	if (endMode === "points") {
 		awardFlagPoints(grid);
-		const tally = playerName(1) + ": " + scores[1] + "  " + playerName(2) + ": " + scores[2];
-		if (scores[1] === scores[2]) return "Tie game! " + tally;
+		const scoreLines = [1, 2].map((p) => ({ player: p, text: playerName(p) + ": " + scores[p] }));
+		if (scores[1] === scores[2]) return { headline: "Tie game!", scores: scoreLines };
 		const winner = scores[1] > scores[2] ? 1 : 2;
-		return (winner === 1 && gameMode === "vsai" ? "You win!" : playerName(winner) + " wins!") + " " + tally;
+		return {
+			headline: winner === 1 && gameMode === "vsai" ? "You win!" : playerName(winner) + " wins!",
+			scores: scoreLines
+		};
 	}
-	if (aiAutoSolve) return "The AI cleared the board!";
-	if (gameMode === "multiplayer") return "Board cleared - both players win!";
-	if (gameMode === "vsai") return "You and the AI cleared the board!";
-	return "You win!";
+	if (aiAutoSolve) return { headline: "The AI cleared the board!", scores: [] };
+	if (gameMode === "multiplayer") return { headline: "Board cleared - both players win!", scores: [] };
+	if (gameMode === "vsai") return { headline: "You and the AI cleared the board!", scores: [] };
+	return { headline: "You win!", scores: [] };
 }
 //restart button to have the user get back to the start screen, rather than having the user manually refresh the screen - Johney09/16
-function addRestartButton(container) {
+function addRestartButton(container, inFlow = false) {
 	const button = document.createElement("button");
-	button.className = "restart-button";
+	button.className = "restart-button" + (inFlow ? " in-flow" : "");
 	button.textContent = "RESTART";
 	button.addEventListener("click", () => window.location.reload()); //reloads the screen, brings them back to the starting screen - Johney 09/16
 	container.appendChild(button);
@@ -1044,7 +1104,7 @@ function render(grid, bombs, first_run) {
 	flagCounter.className = "flag-counter";
 
 	const flagIcon = document.createElement("span");
-	flagIcon.appendChild(spriteImg("flag_red.png", "counter-sprite"));
+	flagIcon.appendChild(spriteImg(counterFlagSrc(), "counter-sprite"));
 
 	const flagNumber = document.createElement("span");
 	const diff = bombs - flags;
