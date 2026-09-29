@@ -23,10 +23,10 @@ This repository was forked and extended by a new maintenance team (see `TeamMemb
 for the original Project 1 authors) as part of an EECS 581/582-style
 "inherit-and-extend" assignment. Work happened on the `team-extension-ai-multiplayer`
 branch. The original Project 1 gameplay (setup, reveal, flag, win/lose) was verified
-and one latent bug was fixed: when the very first click landed on a mine, the mine
-was relocated so the player can never lose on the first click, but the board's
-neighbor-count numbers were never recomputed afterward and could show stale values;
-`setTileNeighboringBombCounts(grid)` is now called again immediately after relocation.
+and the first-click behavior was improved: the selected tile and its neighbors are
+kept mine-free, guaranteeing a zero-valued first reveal and a useful cascade. Mines
+relocated out of that protected area also trigger `setTileNeighboringBombCounts(grid)`
+so every displayed neighbor count remains accurate.
 
 ### AI Solver (`ai.js`)
 Three difficulties, selectable from the start screen when "Vs AI" is chosen:

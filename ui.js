@@ -233,6 +233,33 @@ function takeAiAction(grid, bombs) {
 	finishTurn(grid, bombs, action ? performAiAction(grid, action) : "Playing");
 }
 
+// Keeps the first selected cell and its neighbors mine-free so the first reveal is zero.
+function guaranteeZeroFirstClick(grid, x, y, bombs) {
+	const protectedCells = [];
+	for (let dx = -1; dx <= 1; dx++) {
+		for (let dy = -1; dy <= 1; dy++) {
+			const protectedX = x + dx;
+			const protectedY = y + dy;
+			if (protectedX >= 0 && protectedX < grid.length &&
+				protectedY >= 0 && protectedY < grid[0].length) {
+				protectedCells.push(grid[protectedX][protectedY]);
+			}
+		}
+	}
+
+	const protectedSet = new Set(protectedCells);
+	const availableCells = grid.flat().filter((tile) => !protectedSet.has(tile));
+	const minesToMove = protectedCells.filter((tile) => tile.isBomb);
+
+	minesToMove.forEach((mine) => {
+		mine.isBomb = false;
+		const destination = availableCells.find((tile) => !tile.isBomb);
+		if (destination) destination.isBomb = true;
+	});
+
+	setTileNeighboringBombCounts(grid);
+}
+
 // Passes the turn after a reveal: player 1 <-> player 2 (or the AI in vs-AI mode).
 function advanceTurn(grid, bombs) {
 	if (gameMode === "solo" || aiAutoSolve) return;
@@ -856,18 +883,8 @@ function render(grid, bombs, first_run) {
 			button.addEventListener("click", () => {
 				if (boardLocked || tile.isFlipped || tile.isFlagged) return; // ignore AI turns and no-op clicks
 
-				// if this is the first click and we have clicked on a bomb - Daniel 09/15
-				if(first_run && tile.isBomb == true){
-					// if this is a mine get a list of all non mine cells that are not this cell - Daniel 09/15
-					let nonbombs = grid.flat(2).filter((tiler) => !tiler.isBomb);
-					// disable the mine - Daniel 09/15
-					tile.isBomb = false;
-					// set one of the non mine cells to a mine cell - Daniel 09/15
-					nonbombs[Math.floor(Math.random() * (nonbombs.length-0)-0)].isBomb = true;
-					// Bug fix (incoming maintenance team): relocating the mine invalidated every
-					// tile's cached numSurroundingBombs, so the numbers shown on the board could
-					// be wrong for the rest of the game. Recompute them before revealing anything.
-					setTileNeighboringBombCounts(grid);
+				if(first_run){
+					guaranteeZeroFirstClick(grid, i, x, bombs);
 				}
 				const result = applyReveal(grid, i, x); //Only redraw if the game is still in progress; otherwise leave the win/loss screen (set by win_loss_continue) up - Johney 09/16
 
