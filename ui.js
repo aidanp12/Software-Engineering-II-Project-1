@@ -140,6 +140,74 @@ let endMode = "death";       // "points" | "death"
 let scores = { 1: 0, 2: 0 };
 const BOMB_PENALTY = 3;
 const PLAYER_COLORS = { 1: "red", 2: "blue" };
+let firstRevealPending = true; // the first reveal of a game is guaranteed to be a zero tile
+let pendingExplosion = null;   // [x, y] of a bomb that was just uncovered
+
+// 16x16 pixel-art sprite; cls selects the CSS sizing.
+function spriteImg(src, cls = "tile-sprite") {
+	const img = document.createElement("img");
+	img.src = src;
+	img.alt = "";
+	img.className = cls;
+	return img;
+}
+
+function shakeScreen() {
+	const area = document.getElementById("game-area");
+	area.classList.remove("screen-shake");
+	void area.offsetWidth; // forces a reflow so the animation restarts
+	area.classList.add("screen-shake");
+}
+
+// Overlays the explosion sprite on the bomb that was just uncovered, then shakes the screen.
+function playPendingExplosion() {
+	if (!pendingExplosion) return;
+	const [x, y] = pendingExplosion;
+	pendingExplosion = null;
+
+	// render() builds one column div per grid column, holding one button per tile.
+	const column = document.getElementById("main-container").children[x];
+	const tileButton = column && column.children[y];
+	if (!tileButton) return;
+
+	const rect = tileButton.getBoundingClientRect();
+	const boom = document.createElement("div");
+	boom.className = "bomb-explosion";
+	boom.style.left = (rect.left + rect.width / 2) + "px";
+	boom.style.top = (rect.top + rect.height / 2) + "px";
+	boom.addEventListener("animationend", () => boom.remove());
+	document.body.appendChild(boom);
+	shakeScreen();
+}
+
+// Single-player loss: every number, label and sprite tumbles off to the bottom of the window.
+function dropEverythingOffScreen() {
+	document.documentElement.style.overflow = "hidden"; // rotated pieces landing at the edge must not add scrollbars
+	const fallers = [];
+	document.querySelectorAll("#main-container .button").forEach((tileButton) => {
+		if (tileButton.textContent.trim() !== "") {
+			const chars = document.createElement("span");
+			chars.textContent = tileButton.textContent;
+			tileButton.textContent = "";
+			tileButton.appendChild(chars);
+			fallers.push(chars);
+		} else {
+			tileButton.querySelectorAll("img").forEach((img) => fallers.push(img));
+		}
+	});
+	document.querySelectorAll("#main-container .icon-thing, #container-two .flag-counter > *").forEach((el) => fallers.push(el));
+
+	fallers.forEach((el) => {
+		if (getComputedStyle(el).display === "inline") el.style.display = "inline-block";
+		const rect = el.getBoundingClientRect();
+		el.style.setProperty("--fall-distance", Math.max(0, window.innerHeight - rect.bottom) + "px");
+		el.style.setProperty("--fall-drift", (Math.random() * 60 - 30) + "px");
+		el.style.setProperty("--fall-rotation", (Math.random() * 720 - 360) + "deg");
+		const duration = (0.8 + Math.random() * 0.6).toFixed(2);
+		const delay = (Math.random() * 0.9).toFixed(2);
+		el.style.animation = "fall-off " + duration + "s cubic-bezier(.5, 0, 1, .6) " + delay + "s forwards";
+	});
+}
 
 function playerName(p) {
 	if (gameMode === "vsai") return p === 1 ? "You" : "AI";
@@ -196,13 +264,20 @@ function finishTurn(grid, bombs, result) {
 		return;
 	}
 	render(grid, bombs, false);
+	playPendingExplosion();
 	advanceTurn(grid, bombs);
 }
 
 // Reveals one tile. In points mode a bomb costs the active player points instead of ending the game.
 function applyReveal(grid, x, y) {
 	const tile = grid[x][y];
-	if (endMode === "points" && tile.isBomb && !tile.isFlagged && !tile.isFlipped) {
+	if (firstRevealPending && !tile.isFlagged && !tile.isFlipped) {
+		guaranteeZeroFirstClick(grid, x, y);
+		firstRevealPending = false;
+	}
+	const hitsBomb = tile.isBomb && !tile.isFlagged && !tile.isFlipped;
+	if (hitsBomb) pendingExplosion = [x, y];
+	if (endMode === "points" && hitsBomb) {
 		tile.isFlipped = true;
 		scores[activePlayer] -= BOMB_PENALTY;
 		return "Playing";
@@ -234,7 +309,7 @@ function takeAiAction(grid, bombs) {
 }
 
 // Keeps the first selected cell and its neighbors mine-free so the first reveal is zero.
-function guaranteeZeroFirstClick(grid, x, y, bombs) {
+function guaranteeZeroFirstClick(grid, x, y) {
 	const protectedCells = [];
 	for (let dx = -1; dx <= 1; dx++) {
 		for (let dy = -1; dy <= 1; dy++) {
@@ -322,6 +397,11 @@ function lose(grid) {
 		button.disabled = true;
 	});
 
+	playPendingExplosion();
+	// Solo only: after the blast, everything on screen falls off before the game-over screen.
+	const solo = gameMode === "solo";
+	if (solo) setTimeout(dropEverythingOffScreen, 900);
+
 	// Let player see the board first
 	setTimeout(() => {
 		const blackScreen = document.getElementById("intro-screen");
@@ -359,7 +439,7 @@ function lose(grid) {
 
 		}, 2000);
 
-	}, 1500);
+	}, solo ? 3600 : 1800);
 }
 // Added by the incoming maintenance team: tailors the loss message to the active mode/player.
 function lossMessage() {
@@ -429,6 +509,8 @@ function startup(bombs, options) {
 	aiAutoSolve = gameMode === "vsai" && !!opts.autoSolve;
 	endMode = (gameMode === "solo" || aiAutoSolve) ? "death" : (opts.endMode || "death");
 	scores = { 1: 0, 2: 0 };
+	firstRevealPending = true;
+	pendingExplosion = null;
 	activePlayer = aiAutoSolve ? 2 : 1;
 	boardLocked = false;
 	stopAutoSolve();
@@ -507,6 +589,7 @@ window.addEventListener("load", () => {
 			button.style.display = "block";
 			titlebar.style.display = "block";
 			modeSelect.style.display = "flex"; // Added: reveal the game-mode controls alongside the rest
+			menuPanel.style.display = "flex";
 		}, 3000);
 
 		gameStarted = true;
@@ -600,15 +683,22 @@ window.addEventListener("load", () => {
 		{ value: "vsai", label: "Vs AI" }
 	];
 
+	const subPanels = {}; // per-mode panel that holds that mode's extra options
 	const aiOptions = document.createElement("div");
-	aiOptions.className = "ai-options";
-	aiOptions.style.display = "none";
+	aiOptions.className = "sub-group";
+	const aiHeading = document.createElement("div");
+	aiHeading.className = "sub-heading";
+	aiHeading.textContent = "AI difficulty";
+	aiOptions.appendChild(aiHeading);
 
 	// Win condition for 2-player and vs-AI games.
 	let selectedEndMode = "points";
 	const ruleOptions = document.createElement("div");
-	ruleOptions.className = "ai-options";
-	ruleOptions.style.display = "none";
+	ruleOptions.className = "sub-group";
+	const ruleHeading = document.createElement("div");
+	ruleHeading.className = "sub-heading";
+	ruleHeading.textContent = "Win condition";
+	ruleOptions.appendChild(ruleHeading);
 	[{ value: "points", label: "Points" }, { value: "death", label: "Instant death" }].forEach((opt, idx) => {
 		const optionLabel = document.createElement("label");
 		optionLabel.className = "mode-option";
@@ -634,13 +724,19 @@ window.addEventListener("load", () => {
 		radio.checked = idx === 0;
 		radio.addEventListener("change", () => {
 			selectedMode = opt.value;
-			aiOptions.style.display = selectedMode === "vsai" ? "flex" : "none";
-			ruleOptions.style.display = selectedMode === "solo" ? "none" : "flex";
+			refreshSubPanels();
 		});
 
 		optionLabel.appendChild(radio);
 		optionLabel.appendChild(document.createTextNode(opt.label));
-		modeSelect.appendChild(optionLabel);
+		const choice = document.createElement("div");
+		choice.className = "mode-choice";
+		const sub = document.createElement("div");
+		sub.className = "sub-options";
+		subPanels[opt.value] = sub;
+		choice.appendChild(optionLabel);
+		choice.appendChild(sub);
+		modeSelect.appendChild(choice);
 	});
 
 	const difficultySelect = document.createElement("select");
@@ -662,14 +758,28 @@ window.addEventListener("load", () => {
 	autoSolveLabel.appendChild(document.createTextNode(" AI plays automatically"));
 	aiOptions.appendChild(autoSolveLabel);
 
-	modeSelect.appendChild(ruleOptions);
-	modeSelect.appendChild(aiOptions);
+	subPanels.vsai.appendChild(aiOptions);
 
-	container.appendChild(titlebar)
-	container.appendChild(bonusInstuctions)
-	container.appendChild(modeSelect);
-	container.appendChild(input);
-	container.appendChild(button);
+	// Only the selected mode's sub-options are open; the win-condition group moves under it.
+	function refreshSubPanels() {
+		Object.keys(subPanels).forEach((mode) => subPanels[mode].classList.toggle("open", mode === selectedMode));
+		if (selectedMode === "solo") {
+			ruleOptions.remove();
+		} else {
+			subPanels[selectedMode].appendChild(ruleOptions);
+		}
+	}
+	refreshSubPanels();
+
+	// Everything on the start screen lives in one card so it stays inside the window.
+	const menuPanel = document.createElement("div");
+	menuPanel.className = "menu-panel";
+	menuPanel.appendChild(titlebar);
+	menuPanel.appendChild(input);
+	menuPanel.appendChild(bonusInstuctions);
+	menuPanel.appendChild(modeSelect);
+	menuPanel.appendChild(button);
+	document.body.appendChild(menuPanel);
 //Only start the game if the entered mine count is between 10 and 20; - Johney 09/16
 //otherwise, show an error and let the user try again - Johney 09/16
 	
@@ -716,7 +826,7 @@ window.addEventListener("load", () => {
 			).forEach(element => {
 				element.style.display = "none";
 			});
-			modeSelect.style.display = "none"; // Added: hide the mode controls once the game starts
+			menuPanel.style.display = "none"; // Added: hide the start menu once the game starts
 			startup(input.value, {
 				mode: selectedMode,
 				difficulty: difficultySelect.value,
@@ -725,7 +835,7 @@ window.addEventListener("load", () => {
 			});
 		}
 		else{
-			bonusInstuctions.className = "out-of-range-message"
+			bonusInstuctions.className = "menu-error"
 			bonusInstuctions.textContent = "Please select between 10-20 mines.";
 
 		}
@@ -848,19 +958,16 @@ function render(grid, bombs, first_run) {
 			if (!tile.isFlipped) {
 				button.classList.add("hidden-tile");
 				if (tile.isFlagged) {
-					button.textContent = "🚩";
-					if (tile.flagOwner !== null) {
-						// Text flag glyph so it can be tinted with the owning player's color.
-						button.textContent = "⚑";
-						button.classList.add("flag-p" + tile.flagOwner);
-					}
+					button.classList.add("has-sprite");
+					button.appendChild(spriteImg(tile.flagOwner === 2 ? "flag_blue.png" : "flag_red.png"));
 					flags += 1;
 				}
 				} else {
 					button.classList.add("revealed-tile");
 
 					if (tile.isBomb) {
-						button.textContent = "B";
+						button.classList.add("has-sprite");
+						button.appendChild(spriteImg("bomb.png"));
 					}
 					else if (tile.numSurroundingBombs !== undefined) {
 						button.textContent = tile.numSurroundingBombs;
@@ -883,9 +990,6 @@ function render(grid, bombs, first_run) {
 			button.addEventListener("click", () => {
 				if (boardLocked || tile.isFlipped || tile.isFlagged) return; // ignore AI turns and no-op clicks
 
-				if(first_run){
-					guaranteeZeroFirstClick(grid, i, x, bombs);
-				}
 				const result = applyReveal(grid, i, x); //Only redraw if the game is still in progress; otherwise leave the win/loss screen (set by win_loss_continue) up - Johney 09/16
 
 				finishTurn(grid, bombs, result); // Added: also advances multiplayer/AI turns
@@ -904,8 +1008,12 @@ function render(grid, bombs, first_run) {
 				} else {
 					return;
 				}
-				// Flagging is a free action: redraw without passing the turn.
-				render(grid, bombs, first_run);
+				if (gameMode === "solo") {
+					render(grid, bombs, false);
+				} else {
+					// In multiplayer, placing or removing a flag is the player's whole turn.
+					finishTurn(grid, bombs, "Playing");
+				}
 			});
 		}
 		//Row letter label (A-J) from numtoLetter() - variablle is named "column" - Johney 09/16
@@ -936,7 +1044,7 @@ function render(grid, bombs, first_run) {
 	flagCounter.className = "flag-counter";
 
 	const flagIcon = document.createElement("span");
-	flagIcon.textContent = "🚩";
+	flagIcon.appendChild(spriteImg("flag_red.png", "counter-sprite"));
 
 	const flagNumber = document.createElement("span");
 	const diff = bombs - flags;

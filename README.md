@@ -46,10 +46,9 @@ every turn by itself, useful for watching/demoing the solver).
 
 ### Custom Addition: Local 2-Player Multiplayer
 "2 Player" and "Vs AI" share one board and alternate turns. Player 1 (red) goes first,
-then Player 2 (blue) or the AI. Each turn is exactly one reveal; flagging is a free
-action that does not pass the turn (the AI, however, spends its whole turn on a single
-reveal or a single flag). Flags are drawn in the owner's color, an opponent's flag
-cannot be changed, and the page background fades to the active player's color.
+then Player 2 (blue) or the AI. Each turn is exactly ONE action: reveal one tile, or
+place/remove one flag. Flags use the owner's sprite color, an opponent's flag cannot be
+changed, and the page background fades to the active player's color.
 
 Two win conditions can be chosen at the start screen:
 - **Instant death** – whoever uncovers a mine loses immediately; clearing the board
@@ -68,14 +67,14 @@ sequenceDiagram
     participant Grid as grid.js (revealTile/flagTile)
 
     UI->>UI: activePlayer = 1 (indicator: "Player 1's turn")
-    P1->>UI: reveal a tile (flagging is a free action)
-    UI->>Grid: revealTile(grid, x, y)
+    P1->>UI: reveal a tile OR place a flag (one action)
+    UI->>Grid: revealTile(grid, x, y) / flagTile(grid, x, y)
     Grid-->>UI: result ("Playing" | "Victory" | "Game Over: Loss")
     alt result is Playing
         UI->>UI: advanceTurn() -> activePlayer = 2
         UI->>UI: indicator: "Player 2's turn"
-        P2->>UI: reveal a tile (flagging is a free action)
-        UI->>Grid: revealTile(grid, x, y)
+        P2->>UI: reveal a tile OR place a flag (one action)
+        UI->>Grid: revealTile(grid, x, y) / flagTile(grid, x, y)
         Grid-->>UI: result
         UI->>UI: advanceTurn() -> activePlayer = 1
     else result is Victory or Game Over: Loss
