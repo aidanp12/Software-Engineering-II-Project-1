@@ -840,67 +840,76 @@ window.addEventListener("load", () => {
 	menuPanel.appendChild(modeSelect);
 	menuPanel.appendChild(button);
 	document.body.appendChild(menuPanel);
-//Only start the game if the entered mine count is between 10 and 20; - Johney 09/16
-//otherwise, show an error and let the user try again - Johney 09/16
-	
-	/*
-	AI USE (by RPM)— removing opening artwork/effects when START is pressed
-	
-	How/why AI was used:
-	ChatGPT was used to make the presentation artwork disappear when the actual
-	Minesweeper board starts.
-	
-	Specific prompts entered:
-	1. "Now I want to make the page clipart disapear when the game starts"
-	2. "It did not remove it..." followed by the selector that ended with
-	   ".title-explosion .webpage_art"
-	
-	Validation/revisions:
-	The first change added .webpage_art to the querySelectorAll() list that already
-	hid the title, shadow, fire, and explosion elements. The first human attempt in the
-	working file accidentally omitted the comma between ".title-explosion" and
-	".webpage_art". This went unoticed and stunned me for some time as to why this wasn't behaving as it should.
-	That selector means ".webpage_art inside .title-explosion",
-	which did not match the standalone artwork, so the image remained visible.
-	ChatGPT identified the selector mistake and the finalized file uses:
-	".title, .title-shadow, .title-fire, .title-explosion, .webpage_art".
 
-	
-	Challenges/limitations:
-	The bug was a CSS-selector syntax issue rather than a problem with
-	element.style.display itself.
+//Only start the game if the entered mine count is a whole number between 10 and 20;
+//otherwise, show an error and let the user try again. - Fabrizio 10/01
 
-	Also, during separate merge advice, ChatGPT suggested stricter integer validation
-	with Number.isInteger(Number(input.value)) and startup(Number(input.value)).
-	The finalized file did NOT adopt those suggestions; it retains the earlier
-	range-only check and passes input.value directly.
-	
-	AI-assisted section:
-	The querySelectorAll() cleanup performed immediately before startup().
-	*/
+/*
+AI USE (by Fabrizio) — validating mine count input before starting the game
 
-	button.addEventListener("click", () => {
-		if(input.value>=10 && input.value<=20){
-			document.querySelectorAll(
-				".title, .title-shadow, .title-fire, .title-explosion, .webpage_art"
-			).forEach(element => {
-				element.style.display = "none";
-			});
-			menuPanel.style.display = "none"; // Added: hide the start menu once the game starts
-			startup(input.value, {
-				mode: selectedMode,
-				difficulty: difficultySelect.value,
-				autoSolve: autoSolveCheckbox.checked,
-				endMode: selectedEndMode
-			});
-		}
-		else{
-			bonusInstuctions.className = "menu-error"
-			bonusInstuctions.textContent = "Please select between 10-20 mines.";
+How/why AI was used:
+ChatGPT was used to help identify why decimal values such as 10.4 were being
+accepted as valid mine counts and causing incorrect game behavior.
 
-		}
-	});
+Specific prompt/context:
+The issue was that the existing validation only checked whether input.value
+was between 10 and 20. JavaScript therefore accepted decimal values such as
+10.4 because they still satisfied the numeric range check.
+
+Validation/revisions:
+The input is now converted to a number and checked with Number.isInteger().
+The game only starts when the entered value is an integer between 10 and 20.
+
+The finalized validation uses:
+const bombCount = Number(input.value);
+
+if (Number.isInteger(bombCount) && bombCount >= 10 && bombCount <= 20)
+
+The validated numeric value is then passed directly to startup():
+startup(bombCount, ...)
+
+Testing:
+Valid integer values such as 10, 15, and 20 were tested and successfully
+started the game. Decimal values such as 10.4 and 19.9 were rejected.
+
+Challenges/limitations:
+The initial edit also exposed a misplaced closing brace in ui.js, which caused
+the game not to start after valid input. The function scope was corrected and
+node --check ui.js was used to confirm valid JavaScript syntax.
+
+AI-assisted section:
+The integer validation and conversion of input.value to bombCount before
+calling startup().
+*/
+
+button.addEventListener("click", () => {
+    const bombCount = Number(input.value);
+
+    if (Number.isInteger(bombCount) && bombCount >= 10 && bombCount <= 20) {
+        document.querySelectorAll(
+            ".title, .title-shadow, .title-fire, .title-explosion, .webpage_art"
+        ).forEach(element => {
+            element.style.display = "none";
+        });
+
+        menuPanel.style.display = "none";
+
+        startup(bombCount, {
+            mode: selectedMode,
+            difficulty: difficultySelect.value,
+            autoSolve: autoSolveCheckbox.checked,
+            endMode: selectedEndMode
+        });
+    } else {
+        bonusInstuctions.className = "menu-error";
+        bonusInstuctions.textContent =
+            "Please enter a whole number between 10-20 mines.";
+    }
 });
+
+}); 
+
+
 //---------------------------------------------------------------------------------------------------------------
 
 //Comments done by Johney Makeen on 09/16
