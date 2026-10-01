@@ -327,6 +327,33 @@ function applyReveal(grid, x, y) {
 	return revealTile(grid, x, y);
 }
 
+
+// helper function to apply a flag to a tile, handling ownership and scoring. Fabrizio Falcon 09/16 used AI to complete the function and check syntaxt
+function applyFlag(grid, x, y, player) {
+    const tile = grid[x][y];
+
+    if (tile.isFlipped) return false;
+
+    if (tile.isFlagged) {
+        if (tile.flagOwner !== null && tile.flagOwner !== player) return false;
+
+        if (endMode === "points" && tile.flagOwner) {
+            scores[tile.flagOwner] -= tile.isBomb ? 1 : -WRONG_FLAG_PENALTY;
+        }
+
+        flagTile(grid, x, y);
+        return true;
+    }
+
+    flagTile(grid, x, y, gameMode === "solo" ? null : player);
+
+    if (endMode === "points" && gameMode !== "solo") {
+        scores[player] += tile.isBomb ? 1 : -WRONG_FLAG_PENALTY;
+    }
+
+    return true;
+}
+
 // Flag scoring, applied once at the end: +1 per flag on a mine, -2 per flag on a safe tile.
 function awardFlagPoints(grid) {
 	grid.flat().forEach((tile) => {
@@ -515,7 +542,6 @@ function win(grid) {
 // Added by the incoming maintenance team: headline plus per-player final scores (points mode only).
 function winSummary(grid) {
 	if (endMode === "points") {
-		awardFlagPoints(grid);
 		const scoreLines = [1, 2].map((p) => ({ player: p, text: playerName(p) + ": " + scores[p] }));
 		if (scores[1] === scores[2]) return { headline: "Tie game!", scores: scoreLines };
 		const winner = scores[1] > scores[2] ? 1 : 2;
@@ -1080,15 +1106,9 @@ function render(grid, bombs, first_run) {
 				e.preventDefault();
 				if (boardLocked || tile.isFlipped) return;
 
-				if (tile.isFlagged) {
-					// An opponent's flag is locked in.
-					if (tile.flagOwner !== null && tile.flagOwner !== activePlayer) return;
-					flagTile(grid, i, x);
-				} else if (flags < bombs) {
-					flagTile(grid, i, x, gameMode === "solo" ? null : activePlayer);
-				} else {
-					return;
-				}
+				if (!tile.isFlagged && flags >= bombs) return;
+
+				if (!applyFlag(grid, i, x, activePlayer)) return;
 				if (gameMode === "solo") {
 					render(grid, bombs, false);
 				} else {
