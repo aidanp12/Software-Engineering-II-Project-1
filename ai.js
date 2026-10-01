@@ -74,44 +74,145 @@ function aiFindBasicDeductions(grid, mines, safes)
 // Hard rule: horizontal or vertical revealed 1-2-1 with a fully hidden triple alongside it.
 function aiFind121Deductions(grid, mines, safes)
 {
-	function check(a, b, c, hA, hB, hC)
+	const width = grid.length;
+	const height = grid[0].length;
+
+	function neighborsOf(x, y)
 	{
+		const neighbors = [];
+
+		for (let dx = -1; dx <= 1; dx++)
+		{
+			for (let dy = -1; dy <= 1; dy++)
+			{
+				if (dx === 0 && dy === 0) continue;
+
+				const nx = x + dx;
+				const ny = y + dy;
+
+				if (nx >= 0 && nx < width && ny >= 0 && ny < height)
+				{
+					neighbors.push([nx, ny]);
+				}
+			}
+		}
+
+		return neighbors;
+	}
+
+	function sameCells(actual, expected)
+	{
+		if (actual.length !== expected.length) return false;
+
+		return expected.every(([ex, ey]) =>
+			actual.some(([ax, ay]) => ax === ex && ay === ey)
+		);
+	}
+
+	function check(aPos, bPos, cPos, hA, hB, hC)
+	{
+		const [ax, ay] = aPos;
+		const [bx, by] = bPos;
+		const [cx, cy] = cPos;
+
+		const a = grid[ax][ay];
+		const b = grid[bx][by];
+		const c = grid[cx][cy];
+
 		if (!a.isFlipped || !b.isFlipped || !c.isFlipped) return;
 		if (a.isBomb || b.isBomb || c.isBomb) return;
-		if (a.numSurroundingBombs !== 1 || b.numSurroundingBombs !== 2 || c.numSurroundingBombs !== 1) return;
-		if (hA.t.isFlipped || hB.t.isFlipped || hC.t.isFlipped) return;
-		if (!hA.t.isFlagged) mines.push([hA.x, hA.y]);
-		if (!hC.t.isFlagged) mines.push([hC.x, hC.y]);
-		if (!hB.t.isFlagged) safes.push([hB.x, hB.y]);
-	}
-	const at = (x, y) => ({ x: x, y: y, t: grid[x][y] });
 
-	for (let j = 0; j < grid_height; j++)
-	{
-		for (let i = 0; i + 2 < grid_width; i++)
+		if (
+			a.numSurroundingBombs !== 1 ||
+			b.numSurroundingBombs !== 2 ||
+			c.numSurroundingBombs !== 1
+		) return;
+
+		function unresolvedAndNeeded(x, y)
 		{
-			for (const dj of [-1, 1])
+			const neighbors = neighborsOf(x, y);
+
+			const knownMines = neighbors.filter(([nx, ny]) => {
+				const t = grid[nx][ny];
+				return t.isFlagged || (t.isFlipped && t.isBomb);
+			}).length;
+
+			const unresolved = neighbors.filter(([nx, ny]) => {
+				const t = grid[nx][ny];
+				return !t.isFlipped && !t.isFlagged;
+			});
+
+			return {
+				unresolved,
+				needed: grid[x][y].numSurroundingBombs - knownMines
+			};
+		}
+
+		const A = unresolvedAndNeeded(ax, ay);
+		const B = unresolvedAndNeeded(bx, by);
+		const C = unresolvedAndNeeded(cx, cy);
+
+		// A valid 1-2-1 must reduce exactly to:
+		//
+		// A sees hA, hB and needs 1 mine
+		// B sees hA, hB, hC and needs 2 mines
+		// C sees hB, hC and needs 1 mine
+
+		if (A.needed !== 1 || B.needed !== 2 || C.needed !== 1) return;
+
+		if (!sameCells(A.unresolved, [hA, hB])) return;
+		if (!sameCells(B.unresolved, [hA, hB, hC])) return;
+		if (!sameCells(C.unresolved, [hB, hC])) return;
+
+		mines.push(hA);
+		safes.push(hB);
+		mines.push(hC);
+	}
+
+	// Horizontal 1-2-1
+	for (let y = 0; y < height; y++)
+	{
+		for (let x = 0; x + 2 < width; x++)
+		{
+			for (const dy of [-1, 1])
 			{
-				const jj = j + dj;
-				if (jj < 0 || jj >= grid_height) continue;
-				check(grid[i][j], grid[i + 1][j], grid[i + 2][j], at(i, jj), at(i + 1, jj), at(i + 2, jj));
+				const hiddenY = y + dy;
+				if (hiddenY < 0 || hiddenY >= height) continue;
+
+				check(
+					[x, y],
+					[x + 1, y],
+					[x + 2, y],
+					[x, hiddenY],
+					[x + 1, hiddenY],
+					[x + 2, hiddenY]
+				);
 			}
 		}
 	}
-	for (let i = 0; i < grid_width; i++)
+
+	// Vertical 1-2-1
+	for (let x = 0; x < width; x++)
 	{
-		for (let j = 0; j + 2 < grid_height; j++)
+		for (let y = 0; y + 2 < height; y++)
 		{
-			for (const di of [-1, 1])
+			for (const dx of [-1, 1])
 			{
-				const ii = i + di;
-				if (ii < 0 || ii >= grid_width) continue;
-				check(grid[i][j], grid[i][j + 1], grid[i][j + 2], at(ii, j), at(ii, j + 1), at(ii, j + 2));
+				const hiddenX = x + dx;
+				if (hiddenX < 0 || hiddenX >= width) continue;
+
+				check(
+					[x, y],
+					[x, y + 1],
+					[x, y + 2],
+					[hiddenX, y],
+					[hiddenX, y + 1],
+					[hiddenX, y + 2]
+				);
 			}
 		}
 	}
 }
-
 /*
 	Picks a single action for the AI.
 	inputs: grid, difficulty ("easy" | "medium" | "hard"), maxFlags (int, total mines)
@@ -140,3 +241,4 @@ function aiChooseAction(grid, difficulty, maxFlags)
 	if (options.length === 0) return aiRandomAction(grid);
 	return options[Math.floor(Math.random() * options.length)];
 }
+
