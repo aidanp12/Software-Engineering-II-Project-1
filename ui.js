@@ -576,7 +576,7 @@ function startup(bombs, options) {
 	stopAutoSolve();
 
 	console.log(bombs);
-	const grid = buildGrid(10, 10, bombs); // height is 10, width is 10, and number of bombs is however many the user types (between 10-20) - Johney 09/16
+	const grid = buildGrid(20, 10, bombs); // height is 10, width is 10, and number of bombs is however many the user types (between 10-20) - Johney 09/16
 	render(grid, bombs, true); //calls render, hands render 3 things: the built grid, the bombs count, and true for first run - Johney 09/16
 	updateTurnIndicator();
 
@@ -921,29 +921,41 @@ button.addEventListener("click", () => {
 	- Render will grab this function, and then preform so. 
 
 */
-function numtoLetter(num) {
-	switch (num) {
-		case 0:
-			return "A";
-		case 1:
-			return "B";
-		case 2:
-			return "C";
-		case 3:
-			return "D";
-		case 4:
-			return "E";
-		case 5:
-			return "F";
-		case 6:
-			return "G";
-		case 7:
-			return "H";
-		case 8:
-			return "I";
-		case 9:
-			return "J";
-	}
+
+// Grid label update by Fabrizio - 10/01
+
+/*
+    This function converts a zero-based row index into an Excel-style
+    alphabetical label for the grid.
+
+    Examples:
+    0  -> A
+    9  -> J
+    25 -> Z
+    26 -> AA
+    30 -> AE
+
+    This replaces the previous hardcoded A-J mapping so rectangular or
+    larger grids can display row labels correctly without adding more
+    switch cases manually.
+
+    Render uses this function when creating the row labels.
+*/
+
+
+function numtoLetter(num)
+{
+    let result = "";
+    num += 1;
+
+    while (num > 0)
+    {
+        num--;
+        result = String.fromCharCode(65 + (num % 26)) + result;
+        num = Math.floor(num / 26);
+    }
+
+    return result;
 }
 /*
 	- Draws/redrews the entire baord based on the current grid state. Called once from
