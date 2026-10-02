@@ -602,7 +602,7 @@ function startup(bombs, options) {
 	stopAutoSolve();
 
 	console.log(bombs);
-	const grid = buildGrid(20, 10, bombs); // height is 10, width is 10, and number of bombs is however many the user types (between 10-20) - Johney 09/16
+	const grid = buildGrid(10, 10, bombs); // height is 10, width is 10, and number of bombs is however many the user types (between 10-20) - Johney 09/16
 	render(grid, bombs, true); //calls render, hands render 3 things: the built grid, the bombs count, and true for first run - Johney 09/16
 	updateTurnIndicator();
 
