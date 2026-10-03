@@ -542,6 +542,7 @@ function win(grid) {
 // Added by the incoming maintenance team: headline plus per-player final scores (points mode only).
 function winSummary(grid) {
 	if (endMode === "points") {
+		awardFlagPoints(grid);
 		const scoreLines = [1, 2].map((p) => ({ player: p, text: playerName(p) + ": " + scores[p] }));
 		if (scores[1] === scores[2]) return { headline: "Tie game!", scores: scoreLines };
 		const winner = scores[1] > scores[2] ? 1 : 2;
@@ -1106,9 +1107,15 @@ function render(grid, bombs, first_run) {
 				e.preventDefault();
 				if (boardLocked || tile.isFlipped) return;
 
-				if (!tile.isFlagged && flags >= bombs) return;
-
-				if (!applyFlag(grid, i, x, activePlayer)) return;
+				if (tile.isFlagged) {
+					// An opponent's flag is locked in.
+					if (tile.flagOwner !== null && tile.flagOwner !== activePlayer) return;
+					flagTile(grid, i, x);
+				} else if (flags < bombs) {
+					flagTile(grid, i, x, gameMode === "solo" ? null : activePlayer);
+				} else {
+					return;
+				}
 				if (gameMode === "solo") {
 					render(grid, bombs, false);
 				} else {
