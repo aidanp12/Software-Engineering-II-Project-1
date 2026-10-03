@@ -15,54 +15,89 @@ Difficulties:
 If no deduction applies, the AI falls back to a random reveal.
 */
 
+// Finds every tile that is still hidden and has not been flagged
 function aiCollectHiddenUnflagged(grid)
 {
 	let cells = [];
+
+	// Loops through every row and column in the grid
 	for (let i = 0; i < grid.length; i++)
 	{
 		for (let j = 0; j < grid[i].length; j++)
 		{
+			// Only adds tiles that have not been revealed or flagged
 			if (!grid[i][j].isFlipped && !grid[i][j].isFlagged)
 			{
 				cells.push([i, j]);
 			}
 		}
 	}
+
 	return cells;
 }
 
+// Chooses a random hidden tile for the AI to reveal
 function aiRandomAction(grid)
 {
+	// Gets all tiles that can still be revealed
 	const candidates = aiCollectHiddenUnflagged(grid);
+
+	// If there are no valid tiles left, the AI cannot make a move
 	if (candidates.length === 0) return null;
+
+	// Picks one random tile from the available candidates
 	const [x, y] = candidates[Math.floor(Math.random() * candidates.length)];
+
 	return { type: "reveal", x: x, y: y };
 }
 
-// Medium rules: pushes deduced mine coords into `mines` and deduced safe coords into `safes`.
+// Medium difficulty rules.
+// Adds tiles known to be mines into `mines` and known safe tiles into `safes`.
 function aiFindBasicDeductions(grid, mines, safes)
 {
+	// Checks every tile on the board
 	for (let i = 0; i < grid.length; i++)
 	{
 		for (let j = 0; j < grid[i].length; j++)
 		{
 			const tile = grid[i][j];
+
+			// Only revealed numbered tiles can be used to make deductions
 			if (!tile.isFlipped || tile.isBomb || tile.numSurroundingBombs === 0) continue;
 
+			// Gets all neighboring coordinates around this tile
 			const neighbors = getNeighborCoords(i, j);
+
+			// Finds neighboring tiles that have not been revealed
 			const hidden = neighbors.filter(([x, y]) => !grid[x][y].isFlipped);
+
+			// Finds hidden tiles that are already flagged
 			const flagged = hidden.filter(([x, y]) => grid[x][y].isFlagged);
+
+			// Finds hidden tiles that have not been flagged yet
 			const unflaggedHidden = hidden.filter(([x, y]) => !grid[x][y].isFlagged);
-			// Bombs already uncovered (multiplayer points mode) still count toward the number.
-			const revealedBombs = neighbors.filter(([x, y]) => grid[x][y].isFlipped && grid[x][y].isBomb).length;
+
+			// Bombs that have already been revealed still count toward the number
+			// This is mainly used for multiplayer / points mode
+			const revealedBombs = neighbors.filter(
+				([x, y]) => grid[x][y].isFlipped && grid[x][y].isBomb
+			).length;
+
+			// Calculates how many bombs still need to exist around this tile
 			const needed = tile.numSurroundingBombs - revealedBombs;
 
+			// Skips the tile if there is nothing left to check
+			// or if the bomb count is somehow invalid
 			if (unflaggedHidden.length === 0 || needed < 0) continue;
 
+			// If every hidden neighbor must be a bomb, mark them as mines
 			if (hidden.length === needed)
 			{
 				unflaggedHidden.forEach((c) => mines.push(c));
 			}
+
+			// If enough bombs have already been flagged,
+			// every other hidden neighboring tile must be safe
 			else if (flagged.length === needed)
 			{
 				unflaggedHidden.forEach((c) => safes.push(c));
@@ -71,7 +106,8 @@ function aiFindBasicDeductions(grid, mines, safes)
 	}
 }
 
-// Hard rule: horizontal or vertical revealed 1-2-1 with a fully hidden triple alongside it.
+// Hard difficulty rule.
+// Looks for a horizontal or vertical revealed 1-2-1 pattern next to three hidden tiles.
 function aiFind121Deductions(grid, mines, safes)
 {
 	const width = grid.length;
@@ -120,8 +156,11 @@ function aiFind121Deductions(grid, mines, safes)
 		const c = grid[cx][cy];
 
 		if (!a.isFlipped || !b.isFlipped || !c.isFlipped) return;
+
+		// None of the numbered tiles can be bombs
 		if (a.isBomb || b.isBomb || c.isBomb) return;
 
+		// The revealed values must be exactly 1, 2, 1
 		if (
 			a.numSurroundingBombs !== 1 ||
 			b.numSurroundingBombs !== 2 ||
@@ -220,25 +259,45 @@ function aiFind121Deductions(grid, mines, safes)
 */
 function aiChooseAction(grid, difficulty, maxFlags)
 {
+	// Easy difficulty only makes random moves
 	if (difficulty === "easy") return aiRandomAction(grid);
 
+	// Stores tiles that the AI determines are mines or safe
 	const mines = [];
 	const safes = [];
+
+	// Medium and hard difficulties first use the basic rules
 	aiFindBasicDeductions(grid, mines, safes);
+
+	// Hard difficulty tries the 1-2-1 rule if the basic rules found nothing
 	if (difficulty === "hard" && mines.length === 0 && safes.length === 0)
 	{
 		aiFind121Deductions(grid, mines, safes);
 	}
 
+	// Counts how many flags are currently placed on the board
 	const flagsPlaced = grid.flat().filter((t) => t.isFlagged).length;
+
+	// Stores all possible actions the AI could take
 	const options = [];
+
+	// Only adds flag actions if the maximum number of flags has not been reached
 	if (flagsPlaced < maxFlags)
 	{
-		mines.forEach(([x, y]) => options.push({ type: "flag", x: x, y: y }));
+		mines.forEach(([x, y]) =>
+			options.push({ type: "flag", x: x, y: y })
+		);
 	}
-	safes.forEach(([x, y]) => options.push({ type: "reveal", x: x, y: y }));
 
+	// Adds all known safe tiles as possible reveal actions
+	safes.forEach(([x, y]) =>
+		options.push({ type: "reveal", x: x, y: y })
+	);
+
+	// If no logical move was found, fall back to a random reveal
 	if (options.length === 0) return aiRandomAction(grid);
+
+	// Randomly chooses one of the valid logical moves
 	return options[Math.floor(Math.random() * options.length)];
 }
 
