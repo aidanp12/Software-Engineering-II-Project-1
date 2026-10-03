@@ -327,6 +327,33 @@ function applyReveal(grid, x, y) {
 	return revealTile(grid, x, y);
 }
 
+
+// helper function to apply a flag to a tile, handling ownership and scoring. Fabrizio Falcon 09/16 used AI to complete the function and check syntaxt
+function applyFlag(grid, x, y, player) {
+    const tile = grid[x][y];
+
+    if (tile.isFlipped) return false;
+
+    if (tile.isFlagged) {
+        if (tile.flagOwner !== null && tile.flagOwner !== player) return false;
+
+        if (endMode === "points" && tile.flagOwner) {
+            scores[tile.flagOwner] -= tile.isBomb ? 1 : -WRONG_FLAG_PENALTY;
+        }
+
+        flagTile(grid, x, y);
+        return true;
+    }
+
+    flagTile(grid, x, y, gameMode === "solo" ? null : player);
+
+    if (endMode === "points" && gameMode !== "solo") {
+        scores[player] += tile.isBomb ? 1 : -WRONG_FLAG_PENALTY;
+    }
+
+    return true;
+}
+
 // Flag scoring, applied once at the end: +1 per flag on a mine, -2 per flag on a safe tile.
 function awardFlagPoints(grid) {
 	grid.flat().forEach((tile) => {
@@ -840,67 +867,76 @@ window.addEventListener("load", () => {
 	menuPanel.appendChild(modeSelect);
 	menuPanel.appendChild(button);
 	document.body.appendChild(menuPanel);
-//Only start the game if the entered mine count is between 10 and 20; - Johney 09/16
-//otherwise, show an error and let the user try again - Johney 09/16
-	
-	/*
-	AI USE (by RPM)— removing opening artwork/effects when START is pressed
-	
-	How/why AI was used:
-	ChatGPT was used to make the presentation artwork disappear when the actual
-	Minesweeper board starts.
-	
-	Specific prompts entered:
-	1. "Now I want to make the page clipart disapear when the game starts"
-	2. "It did not remove it..." followed by the selector that ended with
-	   ".title-explosion .webpage_art"
-	
-	Validation/revisions:
-	The first change added .webpage_art to the querySelectorAll() list that already
-	hid the title, shadow, fire, and explosion elements. The first human attempt in the
-	working file accidentally omitted the comma between ".title-explosion" and
-	".webpage_art". This went unoticed and stunned me for some time as to why this wasn't behaving as it should.
-	That selector means ".webpage_art inside .title-explosion",
-	which did not match the standalone artwork, so the image remained visible.
-	ChatGPT identified the selector mistake and the finalized file uses:
-	".title, .title-shadow, .title-fire, .title-explosion, .webpage_art".
 
-	
-	Challenges/limitations:
-	The bug was a CSS-selector syntax issue rather than a problem with
-	element.style.display itself.
+//Only start the game if the entered mine count is a whole number between 10 and 20;
+//otherwise, show an error and let the user try again. - Fabrizio 10/01
 
-	Also, during separate merge advice, ChatGPT suggested stricter integer validation
-	with Number.isInteger(Number(input.value)) and startup(Number(input.value)).
-	The finalized file did NOT adopt those suggestions; it retains the earlier
-	range-only check and passes input.value directly.
-	
-	AI-assisted section:
-	The querySelectorAll() cleanup performed immediately before startup().
-	*/
+/*
+AI USE (by Fabrizio) — validating mine count input before starting the game
 
-	button.addEventListener("click", () => {
-		if(input.value>=10 && input.value<=20){
-			document.querySelectorAll(
-				".title, .title-shadow, .title-fire, .title-explosion, .webpage_art"
-			).forEach(element => {
-				element.style.display = "none";
-			});
-			menuPanel.style.display = "none"; // Added: hide the start menu once the game starts
-			startup(input.value, {
-				mode: selectedMode,
-				difficulty: difficultySelect.value,
-				autoSolve: autoSolveCheckbox.checked,
-				endMode: selectedEndMode
-			});
-		}
-		else{
-			bonusInstuctions.className = "menu-error"
-			bonusInstuctions.textContent = "Please select between 10-20 mines.";
+How/why AI was used:
+ChatGPT was used to help identify why decimal values such as 10.4 were being
+accepted as valid mine counts and causing incorrect game behavior.
 
-		}
-	});
+Specific prompt/context:
+The issue was that the existing validation only checked whether input.value
+was between 10 and 20. JavaScript therefore accepted decimal values such as
+10.4 because they still satisfied the numeric range check.
+
+Validation/revisions:
+The input is now converted to a number and checked with Number.isInteger().
+The game only starts when the entered value is an integer between 10 and 20.
+
+The finalized validation uses:
+const bombCount = Number(input.value);
+
+if (Number.isInteger(bombCount) && bombCount >= 10 && bombCount <= 20)
+
+The validated numeric value is then passed directly to startup():
+startup(bombCount, ...)
+
+Testing:
+Valid integer values such as 10, 15, and 20 were tested and successfully
+started the game. Decimal values such as 10.4 and 19.9 were rejected.
+
+Challenges/limitations:
+The initial edit also exposed a misplaced closing brace in ui.js, which caused
+the game not to start after valid input. The function scope was corrected and
+node --check ui.js was used to confirm valid JavaScript syntax.
+
+AI-assisted section:
+The integer validation and conversion of input.value to bombCount before
+calling startup().
+*/
+
+button.addEventListener("click", () => {
+    const bombCount = Number(input.value);
+
+    if (Number.isInteger(bombCount) && bombCount >= 10 && bombCount <= 20) {
+        document.querySelectorAll(
+            ".title, .title-shadow, .title-fire, .title-explosion, .webpage_art"
+        ).forEach(element => {
+            element.style.display = "none";
+        });
+
+        menuPanel.style.display = "none";
+
+        startup(bombCount, {
+            mode: selectedMode,
+            difficulty: difficultySelect.value,
+            autoSolve: autoSolveCheckbox.checked,
+            endMode: selectedEndMode
+        });
+    } else {
+        bonusInstuctions.className = "menu-error";
+        bonusInstuctions.textContent =
+            "Please enter a whole number between 10-20 mines.";
+    }
 });
+
+}); 
+
+
 //---------------------------------------------------------------------------------------------------------------
 
 //Comments done by Johney Makeen on 09/16
@@ -912,29 +948,41 @@ window.addEventListener("load", () => {
 	- Render will grab this function, and then preform so. 
 
 */
-function numtoLetter(num) {
-	switch (num) {
-		case 0:
-			return "A";
-		case 1:
-			return "B";
-		case 2:
-			return "C";
-		case 3:
-			return "D";
-		case 4:
-			return "E";
-		case 5:
-			return "F";
-		case 6:
-			return "G";
-		case 7:
-			return "H";
-		case 8:
-			return "I";
-		case 9:
-			return "J";
-	}
+
+// Grid label update by Fabrizio - 10/01
+
+/*
+    This function converts a zero-based row index into an Excel-style
+    alphabetical label for the grid.
+
+    Examples:
+    0  -> A
+    9  -> J
+    25 -> Z
+    26 -> AA
+    30 -> AE
+
+    This replaces the previous hardcoded A-J mapping so rectangular or
+    larger grids can display row labels correctly without adding more
+    switch cases manually.
+
+    Render uses this function when creating the row labels.
+*/
+
+
+function numtoLetter(num)
+{
+    let result = "";
+    num += 1;
+
+    while (num > 0)
+    {
+        num--;
+        result = String.fromCharCode(65 + (num % 26)) + result;
+        num = Math.floor(num / 26);
+    }
+
+    return result;
 }
 /*
 	- Draws/redrews the entire baord based on the current grid state. Called once from
