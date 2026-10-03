@@ -24,6 +24,7 @@
     <link rel="minesweeper tab icon" href="mine_bomb.png">
 
     <script src="grid.js"></script>
+    <script src="ai.js"></script>
     <script src="ui.js"></script>
 
     <link rel="stylesheet" href="index.css">
@@ -126,6 +127,9 @@
         <!-- main container where JavaScript creates the Minesweeper grid -->
         <div id="main-container" class="grid-stack"></div>
     </div>
+
+    <!-- Scoreboard for 2-player / vs-AI games. Outside #game-area so the screen shake doesn't move it. -->
+    <div id="turn-indicator"></div>
 
 </body>
 
