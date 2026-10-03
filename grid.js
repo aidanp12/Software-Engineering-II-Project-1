@@ -6,22 +6,34 @@ File Description: This is the backend/gameplay function section. It is responsib
 functions to give proper responses to actions taken in gameplay, providing the corresponding gamestates.
 */
 
-
 // Object used to represent an individual tile in the grid
-class Tile {
+class Tile
+{
 	constructor()
 	{
+		// Tracks whether the tile has been revealed
 		this.isFlipped = false;
-    		this.isFlagged = false;
-		this.flagOwner = null; // player number (1/2) who placed the flag, null in solo play
+
+		// Tracks whether the tile currently has a flag placed on it
+		this.isFlagged = false;
+
+		// Stores which player placed the flag in multiplayer mode
+		// null is used when there is no owner / in solo mode
+		this.flagOwner = null;
+
+		// Determines whether this tile contains a bomb
 		this.isBomb = false;
+
+		// Stores the number of bombs surrounding this tile
 		this.numSurroundingBombs = null;
 	}
-
 }
 
+
+// Stores the current grid dimensions so other functions can perform bounds checking
 let grid_height = 0;
 let grid_width = 0;
+
 
 /*
 	Grid setup, to be called once at the start of a game
@@ -34,23 +46,33 @@ let grid_width = 0;
 function buildGrid(height, width, numBombs)
 {
 	let grid = [];
-  	grid_height = height;
- 	grid_width = width;
 
+	// Saves the grid dimensions for later use
+	grid_height = height;
+	grid_width = width;
+
+	// Creates a two-dimensional array of Tile objects
 	for(let i = 0; i < width; i++)
 	{
 		grid[i] = [];
+
 		for(let j = 0; j < height; j++)
 		{
 			grid[i][j] = new Tile();
 		}
 	}
 
+	// Randomly places the requested number of bombs
 	grid = populateBombs(grid, numBombs);
+
+	// Calculates the number of neighboring bombs for every tile
 	grid = setTileNeighboringBombCounts(grid);
-	// Added by Daniel Van Dalsem, initalizes the remaining tiles variable to detect victory.
+
+	// Added by Daniel Van Dalsem, initializes the remaining tiles variable
+	// to detect when every safe tile has been revealed
 	// 9/15/26
-	remaining_tiles = height*width-numBombs;
+	remaining_tiles = height * width - numBombs;
+
 	return grid;
 }
 
@@ -63,16 +85,22 @@ function buildGrid(height, width, numBombs)
 
 	Ian R : 9/14/26 10:21 AM
 */
+
 function populateBombs(grid, numBombs)
 {
 	let width = grid[0].length;
 	let height = grid.length;
+
+	// Repeats until the requested number of bombs has been placed
 	for(let i = 0; i < numBombs; i++)
 	{
 		while(true)
 		{
+			// Chooses a random coordinate in the grid
 			let x = Math.floor(Math.random() * width);
 			let y = Math.floor(Math.random() * height);
+
+			// Only places a bomb if this tile does not already contain one
 			if(grid[x][y].isBomb == false)
 			{
 				grid[x][y].isBomb = true;
@@ -80,6 +108,7 @@ function populateBombs(grid, numBombs)
 			}
 		}
 	}
+
 	return grid;
 }
 
@@ -97,13 +126,16 @@ function setTileNeighboringBombCounts(grid)
 {
 	let width = grid[0].length;
 	let height = grid.length;
+
+	// Checks every tile in the grid
 	for(let i = 0; i < width; i++)
 	{
 		for(let j = 0; j < height; j++)
 		{
 			let numBombs = 0;
-			
-			// :3
+
+			// Checks all eight possible neighboring positions.
+			// Each bounds check prevents accessing outside of the grid.
 			if (j-1 >= 0 && i-1 >= 0 && grid[i-1][j-1].isBomb == true) numBombs += 1;
 			if (j-1 >= 0 && grid[i][j-1].isBomb == true) numBombs += 1;
 			if (j-1 >= 0 && i+1 < width && grid[i+1][j-1].isBomb == true) numBombs += 1;
@@ -112,14 +144,15 @@ function setTileNeighboringBombCounts(grid)
 			if (j+1 < height && i-1 >= 0 && grid[i-1][j+1].isBomb == true) numBombs += 1;
 			if (j+1 < height && grid[i][j+1].isBomb == true) numBombs += 1;
 			if (j+1 < height && i+1 < width && grid[i+1][j+1].isBomb == true) numBombs += 1;
-			// I hate it
-			
+
+			// Stores the final neighboring bomb count in the tile
 			grid[i][j].numSurroundingBombs = numBombs;
 		}
 	}
-	
+
 	return grid;
 }
+
 
 /*
 	Returns the in-bounds [x, y] coordinate pairs surrounding (x, y). Added by the
@@ -132,21 +165,29 @@ function setTileNeighboringBombCounts(grid)
 function getNeighborCoords(x, y)
 {
 	let neighbors = [];
+
+	// Checks every possible offset around the current tile
 	for (let dx = -1; dx <= 1; dx++)
 	{
 		for (let dy = -1; dy <= 1; dy++)
 		{
+			// Skips the current tile itself
 			if (dx === 0 && dy === 0) continue;
+
 			let nx = x + dx;
 			let ny = y + dy;
+
+			// Only adds coordinates that are inside the grid
 			if (nx >= 0 && nx < grid_width && ny >= 0 && ny < grid_height)
 			{
 				neighbors.push([nx, ny]);
 			}
 		}
 	}
+
 	return neighbors;
 }
+
 
 /*
 	Simple function that will return B if a tile is a bomb and the # of surrounding bombs if not
@@ -158,15 +199,19 @@ function getNeighborCoords(x, y)
 */
 function checkTile(tile)
 {
+	// Bomb tiles return "B"
 	if(tile.isBomb == true)
 	{
 		return "B";
 	}
+
+	// Safe tiles return the number of surrounding bombs
 	else
 	{
 		return tile.numSurroundingBombs;
 	}
 }
+
 
 /*
 	Function for printing/testing grid generation
@@ -179,108 +224,146 @@ function checkTile(tile)
 */
 function printGrid(grid)
 {
+	// Builds and prints one row of the grid at a time
 	for(let i = 0; i < grid.length; i++)
 	{
 		let nextLine = "";
+
 		for(let j = 0; j < grid[i].length; j++)
 		{
+			// Adds the bomb or neighboring bomb count to the output
 			nextLine += checkTile(grid[i][j]);
-			nextLine += ","
+			nextLine += ",";
 		}
-		console.log(nextLine)
+
+		console.log(nextLine);
 	}
 }
 
 
+// Tracks the number of non-bomb tiles that have not been revealed yet
+// This value is initialized when buildGrid is called
+var remaining_tiles = 0;
 
-var remaining_tiles = 0 // amount of non bomb tiles unrevealed, will be initialized in the init function
 
-// When a tile is clicked, just pass along the grid, and x/y cord as ints, and this should take care of the rest 
-// It will also return the game state after revealing the tile. 
+// Reveals a tile after it has been clicked
+// Returns the current game state after the reveal
 function revealTile(grid, xCord, yCord)
 {
-  let cur_tile = grid[xCord][yCord] 
-  if (!cur_tile.isFlagged && !cur_tile.isFlipped)
-  {
-    if (checkTile(cur_tile) == "B"){
-      return "Game Over: Loss";
-    }
-    if (checkTile(cur_tile) == 0)
-    {
-      recReveal(grid, xCord, yCord)
-    }
-    else
-    {
-      cur_tile.isFlipped = true;
-      remaining_tiles -= 1; // one less non-bomb tile revealed 
-    }
-    // now to check gameState
-    if (remaining_tiles == 0)
-    {
-      return "Victory";
-    }
-    else {
-      return "Playing";
-    }
-  }
-  return "Playing";  // tried to reveal flagged tile
+	let cur_tile = grid[xCord][yCord];
+
+	// Only hidden, unflagged tiles can be revealed
+	if (!cur_tile.isFlagged && !cur_tile.isFlipped)
+	{
+		// Revealing a bomb immediately ends the game
+		if (checkTile(cur_tile) == "B")
+		{
+			return "Game Over: Loss";
+		}
+
+		// A tile with no neighboring bombs begins the recursive reveal process
+		if (checkTile(cur_tile) == 0)
+		{
+			recReveal(grid, xCord, yCord);
+		}
+
+		// Numbered tiles are revealed normally
+		else
+		{
+			cur_tile.isFlipped = true;
+
+			// One fewer safe tile remains unrevealed
+			remaining_tiles -= 1;
+		}
+
+		// If no safe tiles remain, the player has won
+		if (remaining_tiles == 0)
+		{
+			return "Victory";
+		}
+
+		return "Playing";
+	}
+
+	// Clicking an already revealed or flagged tile does not change the game state
+	return "Playing";
 }
 
-// Flagging a tile
+
+// Adds or removes a flag from a tile
 function flagTile(grid, xCord, yCord, owner = null)
 {
-	// revealed tiles cannot be flagged
+	// Revealed tiles cannot be flagged
 	if (grid[xCord][yCord].isFlipped)
 	{
 		return;
 	}
-  if (grid[xCord][yCord].isFlagged){
-    grid[xCord][yCord].isFlagged = false; // flagging a flagged tile = unflagged tile
-    grid[xCord][yCord].flagOwner = null;
-  }
-  else
-  {
-    grid[xCord][yCord].isFlagged = true; 
-    grid[xCord][yCord].flagOwner = owner;
-  }
-  return;
+
+	// Flagging an already flagged tile removes the flag
+	if (grid[xCord][yCord].isFlagged)
+	{
+		grid[xCord][yCord].isFlagged = false;
+		grid[xCord][yCord].flagOwner = null;
+	}
+
+	// Otherwise, place a new flag and store its owner
+	else
+	{
+		grid[xCord][yCord].isFlagged = true;
+		grid[xCord][yCord].flagOwner = owner;
+	}
+
+	return;
 }
 
-function recReveal(grid, xCord, yCord){ // mis flagged tiles that are 0 don't get revealed
-  grid[xCord][yCord].isFlipped = true;
-  remaining_tiles -= 1;
-  // current tile is done, now to figure out edges 
-  // Note: I used gemini 3.1 pro for figuring out these edges 
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dy = -1; dy <= 1; dy++) {
-      // Skip the current tile itself
-      if (dx === 0 && dy === 0) continue;
-      
-      let checkX = xCord + dx;
-      let checkY = yCord + dy;
-      
-      // Check if the coordinates are within the grid bounds
-      if (checkX >= 0 && checkX < grid_width && 
-          checkY >= 0 && checkY < grid_height) {
-          
-          // The tile is safe to check! 
-          let neighborTile = grid[checkX][checkY];
-          if (!neighborTile.isFlipped && !neighborTile.isFlagged) // ignore flipped and flagged tiles 
-          {
-            if (checkTile(neighborTile) == 0) // if the discovered tile needs to be recRevealed as well
-            {
-              recReveal(grid, checkX, checkY)
-          
-            }
-            else
-            {
-              neighborTile.isFlipped = true;
-              remaining_tiles -= 1;
 
-            }
-          }
-      }
-    }
-  }
-  return; // every valid spot is tested
+// Recursively reveals connected empty tiles and the numbered tiles surrounding them
+function recReveal(grid, xCord, yCord)
+{
+	// Reveals the current zero tile
+	grid[xCord][yCord].isFlipped = true;
+
+	// One fewer safe tile remains hidden
+	remaining_tiles -= 1;
+
+	// Checks all eight neighboring positions around the current tile
+	for (let dx = -1; dx <= 1; dx++)
+	{
+		for (let dy = -1; dy <= 1; dy++)
+		{
+			// Skip the current tile itself
+			if (dx === 0 && dy === 0) continue;
+
+			let checkX = xCord + dx;
+			let checkY = yCord + dy;
+
+			// Makes sure the neighboring coordinates are inside the grid
+			if (
+				checkX >= 0 && checkX < grid_width &&
+				checkY >= 0 && checkY < grid_height
+			)
+			{
+				let neighborTile = grid[checkX][checkY];
+
+				// Already revealed and flagged tiles are ignored
+				if (!neighborTile.isFlipped && !neighborTile.isFlagged)
+				{
+					// Another zero tile continues the recursive reveal
+					if (checkTile(neighborTile) == 0)
+					{
+						recReveal(grid, checkX, checkY);
+					}
+
+					// Numbered neighboring tiles are revealed without recursion
+					else
+					{
+						neighborTile.isFlipped = true;
+						remaining_tiles -= 1;
+					}
+				}
+			}
+		}
+	}
+
+	return;
 }
