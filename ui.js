@@ -140,7 +140,7 @@ let endMode = "death";       // "points" | "death"
 let scores = { 1: 0, 2: 0 };
 const BOMB_PENALTY = 3;
 const PLAYER_COLORS = { 1: "red", 2: "blue" };
-const FLAG_SPRITES = { 1: "flag_red.png", 2: "flag_blue.png" };
+const FLAG_SPRITES = { 1: "assets/images/flag_red.png", 2: "assets/images/flag_blue.png" };
 const WRONG_FLAG_PENALTY = 2;
 let firstRevealPending = true; // the first reveal of a game is guaranteed to be a zero tile
 let pendingExplosion = null;   // [x, y] of a bomb that was just uncovered
@@ -228,7 +228,7 @@ function stopAutoSolve() {
 
 // Top-left counter flag: the active player's color in 2-player games, red everywhere else.
 function counterFlagSrc() {
-	return gameMode === "multiplayer" && !aiAutoSolve ? FLAG_SPRITES[activePlayer] : "flag_red.png";
+	return gameMode === "multiplayer" && !aiAutoSolve ? FLAG_SPRITES[activePlayer] : "assets/images/flag_red.png";
 }
 
 // One player's panel on the scoreboard, colored to match that player's flags.
@@ -634,8 +634,8 @@ window.addEventListener("load", () => {
 	const introScreen = document.getElementById("intro-screen");
 	let gameStarted = false;
 
-	const main_theme = new Audio("minesweeper_theme.mp3");
-	const theme_minus_explosion = new Audio("minesweeper_default.mp3");
+	const main_theme = new Audio("assets/audio/minesweeper_theme.mp3");
+	const theme_minus_explosion = new Audio("assets/audio/minesweeper_default.mp3");
 
 	currentMusic = main_theme;
 	let musicPaused = false;
@@ -675,12 +675,12 @@ window.addEventListener("load", () => {
 
 		if (musicPaused) {
 			currentMusic.play();
-			volumeIcon.src = "volume_on.png";
+			volumeIcon.src = "assets/images/volume_on.png";
 			musicPaused = false;
 		}
 		else {
 			currentMusic.pause();
-			volumeIcon.src = "volume_off.png";
+			volumeIcon.src = "assets/images/volume_off.png";
 			musicPaused = true;
 		}
 	});
@@ -1019,7 +1019,7 @@ function render(grid, bombs, first_run) {
 				button.classList.add("hidden-tile");
 				if (tile.isFlagged) {
 					button.classList.add("has-sprite");
-					button.appendChild(spriteImg(tile.flagOwner === 2 ? "flag_blue.png" : "flag_red.png"));
+					button.appendChild(spriteImg(tile.flagOwner === 2 ? "assets/images/flag_blue.png" : "assets/images/flag_red.png"));
 					flags += 1;
 				}
 				} else {
@@ -1027,7 +1027,7 @@ function render(grid, bombs, first_run) {
 
 					if (tile.isBomb) {
 						button.classList.add("has-sprite");
-						button.appendChild(spriteImg("bomb.png"));
+						button.appendChild(spriteImg("assets/images/bomb.png"));
 					}
 					else if (tile.numSurroundingBombs !== undefined) {
 						button.textContent = tile.numSurroundingBombs;
