@@ -12,7 +12,7 @@ First, `git clone` this project’s repository onto your local machine–-no add
 Enter the number of mines to be hidden underneath tiles on the gameboard.  Once the board appears, select tiles to uncover, using the number that appears on the flipped tile to aid in your gameplay strategy.  If a tile with a mine hidden beneath it is flipped, the user loses the game.
 
 ### Creators
-See the `TeamMembers.txt` document for more information on the contributors for this program.  All Team Meeting Logs and other documentation are included for reference.
+See the `TeamMembers.txt` document for more information on the contributors for this program.  All Team Meeting Logs and other documentation are included for reference. Documentation is in the `docs/` folder, including the original team's meeting logs (`docs/meeting-logs/project-1-original-team/`).
 
 ### More Information
 Please see the Software Architecture document for more detailed information regarding data flow, more detailed game play logic, and how this project was designed.
