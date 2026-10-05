@@ -234,7 +234,7 @@ AI-assisted section:
     height: 130px;
 
     /* picture containing all of the explosion animation frames */
-    background-image: url("explode-sprite-sheet.png");
+    background-image: url("assets/images/explode-sprite-sheet.png");
     /* prevents the sprite sheet from repeating */
     background-repeat: no-repeat;
 
@@ -382,7 +382,7 @@ AI-assisted section:
     height: 120px;
 
     /* picture containing all of the fire animation frames */
-    background-image: url("ongoing_fire_sprite_sheet.png");
+    background-image: url("assets/images/ongoing_fire_sprite_sheet.png");
     /* prevents the sprite sheet from repeating */
     background-repeat: no-repeat;
 
@@ -682,8 +682,8 @@ Specific prompts entered:
 Validation/revisions:
 The soundtrack behavior was tested by confirming that the music stopped on
 loss. During debugging, currentMusic had to be moved to a scope that lose()
-could access. The JavaScript also switches between volume_on.png and
-volume_off.png when the player pauses or resumes the current track. The CSS
+could access. The JavaScript also switches between assets/images/volume_on.png and
+assets/images/volume_off.png when the player pauses or resumes the current track. The CSS
 here was kept focused on placing and sizing that volume control.
 
 Challenges/limitations:
@@ -1061,7 +1061,7 @@ the turn indicator shown during multiplayer and vs-AI games.
 	position: fixed;
 	width: 130px;
 	height: 130px;
-	background-image: url("explode-sprite-sheet.png");
+	background-image: url("assets/images/explode-sprite-sheet.png");
 	background-repeat: no-repeat;
 
 	/* Centers and enlarges the explosion at the bomb location */
