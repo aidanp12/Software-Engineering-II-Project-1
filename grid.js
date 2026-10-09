@@ -88,28 +88,25 @@ function buildGrid(height, width, numBombs)
 
 function populateBombs(grid, numBombs)
 {
-	let width = grid[0].length;
-	let height = grid.length;
+    let width = grid.length;
+    let height = grid[0].length;
 
-	// Repeats until the requested number of bombs has been placed
-	for(let i = 0; i < numBombs; i++)
-	{
-		while(true)
-		{
-			// Chooses a random coordinate in the grid
-			let x = Math.floor(Math.random() * width);
-			let y = Math.floor(Math.random() * height);
+    for(let i = 0; i < numBombs; i++)
+    {
+        while(true)
+        {
+            let x = Math.floor(Math.random() * width);
+            let y = Math.floor(Math.random() * height);
 
-			// Only places a bomb if this tile does not already contain one
-			if(grid[x][y].isBomb == false)
-			{
-				grid[x][y].isBomb = true;
-				break;
-			}
-		}
-	}
+            if(grid[x][y].isBomb == false)
+            {
+                grid[x][y].isBomb = true;
+                break;
+            }
+        }
+    }
 
-	return grid;
+    return grid;
 }
 
 
@@ -124,33 +121,29 @@ function populateBombs(grid, numBombs)
 */
 function setTileNeighboringBombCounts(grid)
 {
-	let width = grid[0].length;
-	let height = grid.length;
+    let width = grid.length;
+    let height = grid[0].length;
 
-	// Checks every tile in the grid
-	for(let i = 0; i < width; i++)
-	{
-		for(let j = 0; j < height; j++)
-		{
-			let numBombs = 0;
-
-			// Checks all eight possible neighboring positions.
-			// Each bounds check prevents accessing outside of the grid.
-			if (j-1 >= 0 && i-1 >= 0 && grid[i-1][j-1].isBomb == true) numBombs += 1;
-			if (j-1 >= 0 && grid[i][j-1].isBomb == true) numBombs += 1;
-			if (j-1 >= 0 && i+1 < width && grid[i+1][j-1].isBomb == true) numBombs += 1;
-			if (i-1 >= 0 && grid[i-1][j].isBomb == true) numBombs += 1;
-			if (i+1 < width && grid[i+1][j].isBomb == true) numBombs += 1;
-			if (j+1 < height && i-1 >= 0 && grid[i-1][j+1].isBomb == true) numBombs += 1;
-			if (j+1 < height && grid[i][j+1].isBomb == true) numBombs += 1;
-			if (j+1 < height && i+1 < width && grid[i+1][j+1].isBomb == true) numBombs += 1;
-
-			// Stores the final neighboring bomb count in the tile
-			grid[i][j].numSurroundingBombs = numBombs;
-		}
-	}
-
-	return grid;
+    for(let i = 0; i < width; i++)
+    {
+        for(let j = 0; j < height; j++)
+        {
+            let numBombs = 0;
+            
+            if (j-1 >= 0 && i-1 >= 0 && grid[i-1][j-1].isBomb == true) numBombs += 1;
+            if (j-1 >= 0 && grid[i][j-1].isBomb == true) numBombs += 1;
+            if (j-1 >= 0 && i+1 < width && grid[i+1][j-1].isBomb == true) numBombs += 1;
+            if (i-1 >= 0 && grid[i-1][j].isBomb == true) numBombs += 1;
+            if (i+1 < width && grid[i+1][j].isBomb == true) numBombs += 1;
+            if (j+1 < height && i-1 >= 0 && grid[i-1][j+1].isBomb == true) numBombs += 1;
+            if (j+1 < height && grid[i][j+1].isBomb == true) numBombs += 1;
+            if (j+1 < height && i+1 < width && grid[i+1][j+1].isBomb == true) numBombs += 1;
+            
+            grid[i][j].numSurroundingBombs = numBombs;
+        }
+    }
+    
+    return grid;
 }
 
 

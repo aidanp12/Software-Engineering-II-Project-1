@@ -498,19 +498,13 @@ AI-assisted section:
 
 }
 /* stacks and centers the rows that make up the board */
-.grid-stack{
-    /* turns this container into a grid */
+.grid-stack {
     display: block grid;
-    /* no space between grid items */
-	gap: 0;
-    /* centers grid horizontally */
-	justify-content: center;
-    /* centers all grid content vertically */
-	align-content: center;
-    /* container takes up 100% of screen height */
-	height: 100vh
-
+    gap: 0;
+    justify-content: center;
+    align-content: center;
 }
+
 /* controls how the tiles are placed across each row */
 .grid-column{
     display: block grid;
@@ -791,26 +785,29 @@ The positioning approach used by .flag-counter, #container-two, and #game-area.
 
 /*CB*/
 /* container used to position the flag counter area */
+#board-wrapper {
+    position: relative;
+    width: fit-content;
+    height: fit-content;
+}
+
 #container-two {
-    /* lets the container be placed using left and top */
     position: absolute;
-    left: 10%;
-    /* calc lets the position use both a percent and rem value */
-    top: calc(48% - 18rem);
-    /* shifts container left by half of its own width */
-    transform: translateX(-50%);
+    left: 0;
+    top: -3rem;
+
     font-family: "Press Start 2P", monospace;
 }
 
 /*CB*/
 /* main game container, also gives the restart button a positioned parent */
 #game-area {
-    /* children using absolute position can position themselves from this box */
-	position: relative;
-    /* only as wide as the game content */
-	width: fit-content;
-    /* equal automatic left/right margins centers it */
-	margin: 0 auto;
+    position: relative;
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 /*

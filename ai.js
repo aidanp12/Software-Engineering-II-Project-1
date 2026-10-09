@@ -110,10 +110,51 @@ function aiFindBasicDeductions(grid, mines, safes)
 // Looks for a horizontal or vertical revealed 1-2-1 pattern next to three hidden tiles.
 function aiFind121Deductions(grid, mines, safes)
 {
-	// Checks whether three revealed tiles form a valid 1-2-1 pattern
-	function check(a, b, c, hA, hB, hC)
+	const width = grid.length;
+	const height = grid[0].length;
+
+	function neighborsOf(x, y)
 	{
-		// All three numbered tiles must already be revealed
+		const neighbors = [];
+
+		for (let dx = -1; dx <= 1; dx++)
+		{
+			for (let dy = -1; dy <= 1; dy++)
+			{
+				if (dx === 0 && dy === 0) continue;
+
+				const nx = x + dx;
+				const ny = y + dy;
+
+				if (nx >= 0 && nx < width && ny >= 0 && ny < height)
+				{
+					neighbors.push([nx, ny]);
+				}
+			}
+		}
+
+		return neighbors;
+	}
+
+	function sameCells(actual, expected)
+	{
+		if (actual.length !== expected.length) return false;
+
+		return expected.every(([ex, ey]) =>
+			actual.some(([ax, ay]) => ax === ex && ay === ey)
+		);
+	}
+
+	function check(aPos, bPos, cPos, hA, hB, hC)
+	{
+		const [ax, ay] = aPos;
+		const [bx, by] = bPos;
+		const [cx, cy] = cPos;
+
+		const a = grid[ax][ay];
+		const b = grid[bx][by];
+		const c = grid[cx][cy];
+
 		if (!a.isFlipped || !b.isFlipped || !c.isFlipped) return;
 
 		// None of the numbered tiles can be bombs
@@ -126,71 +167,91 @@ function aiFind121Deductions(grid, mines, safes)
 			c.numSurroundingBombs !== 1
 		) return;
 
-		// The three tiles beside the pattern must still be hidden
-		if (hA.t.isFlipped || hB.t.isFlipped || hC.t.isFlipped) return;
+		function unresolvedAndNeeded(x, y)
+		{
+			const neighbors = neighborsOf(x, y);
 
-		// In a 1-2-1 pattern, the two outer hidden tiles are bombs
-		if (!hA.t.isFlagged) mines.push([hA.x, hA.y]);
-		if (!hC.t.isFlagged) mines.push([hC.x, hC.y]);
+			const knownMines = neighbors.filter(([nx, ny]) => {
+				const t = grid[nx][ny];
+				return t.isFlagged || (t.isFlipped && t.isBomb);
+			}).length;
 
-		// The hidden tile in the middle is safe
-		if (!hB.t.isFlagged) safes.push([hB.x, hB.y]);
+			const unresolved = neighbors.filter(([nx, ny]) => {
+				const t = grid[nx][ny];
+				return !t.isFlipped && !t.isFlagged;
+			});
+
+			return {
+				unresolved,
+				needed: grid[x][y].numSurroundingBombs - knownMines
+			};
+		}
+
+		const A = unresolvedAndNeeded(ax, ay);
+		const B = unresolvedAndNeeded(bx, by);
+		const C = unresolvedAndNeeded(cx, cy);
+
+		// A valid 1-2-1 must reduce exactly to:
+		//
+		// A sees hA, hB and needs 1 mine
+		// B sees hA, hB, hC and needs 2 mines
+		// C sees hB, hC and needs 1 mine
+
+		if (A.needed !== 1 || B.needed !== 2 || C.needed !== 1) return;
+
+		if (!sameCells(A.unresolved, [hA, hB])) return;
+		if (!sameCells(B.unresolved, [hA, hB, hC])) return;
+		if (!sameCells(C.unresolved, [hB, hC])) return;
+
+		mines.push(hA);
+		safes.push(hB);
+		mines.push(hC);
 	}
 
-	// Helper function that stores a tile along with its coordinates
-	const at = (x, y) => ({ x: x, y: y, t: grid[x][y] });
-
-	// Checks for horizontal 1-2-1 patterns
-	for (let j = 0; j < grid_height; j++)
+	// Horizontal 1-2-1
+	for (let y = 0; y < height; y++)
 	{
-		for (let i = 0; i + 2 < grid_width; i++)
+		for (let x = 0; x + 2 < width; x++)
 		{
-			// Checks the row above and below the 1-2-1 pattern
-			for (const dj of [-1, 1])
+			for (const dy of [-1, 1])
 			{
-				const jj = j + dj;
-
-				// Makes sure the neighboring row is still inside the board
-				if (jj < 0 || jj >= grid_height) continue;
+				const hiddenY = y + dy;
+				if (hiddenY < 0 || hiddenY >= height) continue;
 
 				check(
-					grid[i][j],
-					grid[i + 1][j],
-					grid[i + 2][j],
-					at(i, jj),
-					at(i + 1, jj),
-					at(i + 2, jj)
+					[x, y],
+					[x + 1, y],
+					[x + 2, y],
+					[x, hiddenY],
+					[x + 1, hiddenY],
+					[x + 2, hiddenY]
 				);
 			}
 		}
 	}
 
-	// Checks for vertical 1-2-1 patterns
-	for (let i = 0; i < grid_width; i++)
+	// Vertical 1-2-1
+	for (let x = 0; x < width; x++)
 	{
-		for (let j = 0; j + 2 < grid_height; j++)
+		for (let y = 0; y + 2 < height; y++)
 		{
-			// Checks the column to the left and right of the 1-2-1 pattern
-			for (const di of [-1, 1])
+			for (const dx of [-1, 1])
 			{
-				const ii = i + di;
-
-				// Makes sure the neighboring column is still inside the board
-				if (ii < 0 || ii >= grid_width) continue;
+				const hiddenX = x + dx;
+				if (hiddenX < 0 || hiddenX >= width) continue;
 
 				check(
-					grid[i][j],
-					grid[i][j + 1],
-					grid[i][j + 2],
-					at(ii, j),
-					at(ii, j + 1),
-					at(ii, j + 2)
+					[x, y],
+					[x, y + 1],
+					[x, y + 2],
+					[hiddenX, y],
+					[hiddenX, y + 1],
+					[hiddenX, y + 2]
 				);
 			}
 		}
 	}
 }
-
 /*
 	Picks a single action for the AI.
 	inputs: grid, difficulty ("easy" | "medium" | "hard"), maxFlags (int, total mines)
@@ -239,3 +300,4 @@ function aiChooseAction(grid, difficulty, maxFlags)
 	// Randomly chooses one of the valid logical moves
 	return options[Math.floor(Math.random() * options.length)];
 }
+
