@@ -1,4 +1,24 @@
 <!DOCTYPE html>
+<!--
+Project: Project 2 - Minesweeper Maintenance & Extension
+Original page: Project 1 team (Daniel Van Dalsem, Johney Makeen, Ruben Pino Martinez,
+               Christopher Brush). Comments marked "RPM" are Ruben's from Project 1.
+Project 2 team: Aidan Prather, Cyn Tran, Dillon Figueredo, Fabrizio Falcon,
+                Maxwell Phachanla, Nathan Richardson, Warren Tan
+Comments for Project 2 changes in this file: Dillon Figueredo, October 11th, 2026
+
+File Description: The single page for the game. It loads the font, the stylesheet and
+the three scripts, and provides the empty containers that ui.js fills in at runtime
+(the start menu, board, flag counter, and scoreboard are all built by JavaScript).
+
+Project 2 changes to this file:
+- Loads ai.js (the AI solver) between grid.js and ui.js. Aidan
+- Adds #turn-indicator, the scoreboard for 2-player and vs-AI games. Aidan
+- Image paths moved to assets/images/ during the repository cleanup. Cyn
+
+Sources: Press Start 2P font from Google Fonts (fonts.google.com). See the AI USE note
+below for the original team's AI-assisted layout work.
+-->
 <html lang="en">
 
 <head>
@@ -23,6 +43,8 @@
     <!-- image shown as the icon on the browser tab -->
     <link rel="minesweeper tab icon" href="assets/images/mine_bomb.png">
 
+    <!-- Script order matters: ui.js calls functions defined in grid.js (board logic)
+         and ai.js (AI solver), so those two must load first. -->
     <script src="grid.js"></script>
     <script src="ai.js"></script>
     <script src="ui.js"></script>
@@ -128,7 +150,9 @@
         <div id="main-container" class="grid-stack"></div>
     </div>
 
-    <!-- Scoreboard for 2-player / vs-AI games. Outside #game-area so the screen shake doesn't move it. -->
+    <!-- Project 2: scoreboard / turn indicator for 2-player and vs-AI games. Filled in by
+         updateTurnIndicator() in ui.js and hidden in solo mode. Kept outside #game-area
+         so the screen shake doesn't move it. -->
     <div id="turn-indicator"></div>
 
 </body>

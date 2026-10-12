@@ -12,6 +12,40 @@ Ruben - UI presentation: looks, music, extra add ons
 */
 
 /*
+Project: Project 2 - Minesweeper Maintenance & Extension
+Team: Aidan Prather, Cyn Tran, Dillon Figueredo, Fabrizio Falcon, Maxwell Phachanla,
+      Nathan Richardson, Warren Tan
+Project 2 changes began: September 25th, 2026
+Comments for Project 2 code in this file: Dillon Figueredo, October 11th, 2026
+
+File Description (Project 2): ui.js is still the file that draws the board and handles
+clicks, but the incoming team extended it with:
+- A start menu where the player picks Solo, 2 Player, or Vs AI, plus the AI difficulty
+  (easy / medium / hard) and an optional "AI plays automatically" mode.
+- Alternating turns on one shared board (player 1 <-> player 2, or player <-> AI),
+  where each turn is exactly one action: reveal a tile OR place/remove a flag.
+- Two win conditions for 2-player games: "Points" (hitting a mine costs points,
+  flags are scored at the end) and "Instant death" (hitting a mine ends the game).
+- A scoreboard / turn indicator, player-colored flags, and a guaranteed zero-valued
+  first reveal.
+- Presentation effects: bomb explosion sprite, screen shake, and the solo-loss
+  "everything falls off the screen" animation.
+
+Who did what (Project 2):
+- Aidan - game modes, alternating turns, AI hookup, scoreboard, and effects in this file
+- Cyn - moved images/audio into assets/images and assets/audio and updated the paths here
+- Dillon - prologue and block comments for the Project 2 code in this file
+
+Depends on:
+- grid.js: buildGrid(), revealTile(), flagTile(), setTileNeighboringBombCounts()
+- ai.js:   aiChooseAction()
+index.html loads grid.js and ai.js before this file, so those functions exist here.
+
+Sources: builds on the original Project 1 code above (see that team's notes and AI USE
+blocks). Comments marked "Johney", "Daniel", or "RPM" are from the original team.
+*/
+
+/*
 	Comments done by Johney Makeen on 09/16
 	- takes the result string by revealTile() ("Game Over: Loss", "Victory" )
 	- If its a loss or a win, calls lose()/win() to show the end screen and returns
@@ -145,6 +179,10 @@ const WRONG_FLAG_PENALTY = 2;
 let firstRevealPending = true; // the first reveal of a game is guaranteed to be a zero tile
 let pendingExplosion = null;   // [x, y] of a bomb that was just uncovered
 
+// ---------------------------------------------------------------------------------
+// Project 2: visual helpers (sprites, explosion, screen shake, falling pieces)
+// ---------------------------------------------------------------------------------
+
 // 16x16 pixel-art sprite; cls selects the CSS sizing.
 function spriteImg(src, cls = "tile-sprite") {
 	const img = document.createElement("img");
@@ -154,6 +192,7 @@ function spriteImg(src, cls = "tile-sprite") {
 	return img;
 }
 
+// Shakes the board area once by re-adding the "screen-shake" CSS animation class.
 function shakeScreen() {
 	const area = document.getElementById("game-area");
 	area.classList.remove("screen-shake");
@@ -213,6 +252,11 @@ function dropEverythingOffScreen() {
 	});
 }
 
+// ---------------------------------------------------------------------------------
+// Project 2: players, scoreboard, and turn indicator
+// ---------------------------------------------------------------------------------
+
+// Display name for a player number: "You"/"AI" in vs-AI mode, "Player 1"/"Player 2" otherwise.
 function playerName(p) {
 	if (gameMode === "vsai") return p === 1 ? "You" : "AI";
 	return "Player " + p;
@@ -290,6 +334,16 @@ function updateTurnIndicator() {
 	indicator.appendChild(buildScoreCard(2));
 }
 
+// ---------------------------------------------------------------------------------
+// Project 2: turn flow (human moves, AI moves, auto-solve)
+//
+// Flow of one turn:
+//   click / right-click / AI action -> applyReveal() or flagTile()
+//   -> finishTurn() decides if the game is over
+//   -> if not: render() redraws, then advanceTurn() passes the turn
+//   -> if it is now the AI's turn: takeAiAction() runs after a short delay
+// ---------------------------------------------------------------------------------
+
 /*
 	Handles what happens after a human move (reveal or flag): re-renders the
 	board if the game is still going, then hands the turn to the next
@@ -345,12 +399,16 @@ function performAiAction(grid, action) {
 	return applyReveal(grid, action.x, action.y);
 }
 
+// The AI's turn in vs-AI mode: ask ai.js for one move, do it, then finish the turn like a human move.
+// If the AI has no move (null), the turn is treated as "Playing" and passes back.
 function takeAiAction(grid, bombs) {
 	const action = aiChooseAction(grid, aiDifficulty, bombs);
 	finishTurn(grid, bombs, action ? performAiAction(grid, action) : "Playing");
 }
 
 // Keeps the first selected cell and its neighbors mine-free so the first reveal is zero.
+// Any mines in that 3x3 area are moved to the first open safe tile elsewhere,
+// then every tile's neighbor count is recalculated so the numbers stay correct.
 function guaranteeZeroFirstClick(grid, x, y) {
 	const protectedCells = [];
 	for (let dx = -1; dx <= 1; dx++) {
@@ -406,6 +464,10 @@ function runAutoSolve(grid, bombs) {
 	}, 500);
 }
 
+// ---------------------------------------------------------------------------------
+// End of game: win/loss screens (original Project 1 code, extended in Project 2)
+// ---------------------------------------------------------------------------------
+
 function win_loss_continue(input,grid) { //helps return the function lose and win - Johney 09/16
 	if (input === "Game Over: Loss") {
 		lose(grid)
@@ -419,6 +481,10 @@ function win_loss_continue(input,grid) { //helps return the function lose and wi
 	}
 }
 //Clears the board via resetScreen() and displays "you lose" in its place. - Johney 09/16
+// Project 2 note: lose() no longer calls resetScreen(). It reveals every mine, locks the
+// board, plays the explosion (plus the fall-off animation in solo), then fades to black
+// and shows lossMessage() and a restart button. Solo waits longer (3.6s vs 1.8s) so the
+// fall-off animation can finish first.
 function lose(grid) {
 	// Stop music immediately
 	currentMusic.pause();
@@ -491,6 +557,9 @@ function lossMessage() {
 	return "you just lost the game.";
 }
 //same as lose(), but displays you win instead - Johney 09/16
+// Project 2 note: win() now hides the scoreboard, clears the board, and shows a headline
+// plus per-player scores from winSummary(). In 2-player and vs-AI games a "Victory" means
+// every tile has been revealed or flagged (see finishTurn()), not just all safe tiles.
 function win(grid) {
 	document.body.classList.remove("turn-p1", "turn-p2");
 	document.getElementById("turn-indicator").style.display = "none";
@@ -575,6 +644,7 @@ function startup(bombs, options) {
 	boardLocked = false;
 	stopAutoSolve();
 
+	// Build and draw the board, show the scoreboard, and start the AI if it plays automatically.
 	console.log(bombs);
 	const grid = buildGrid(10, 10, bombs); // height is 10, width is 10, and number of bombs is however many the user types (between 10-20) - Johney 09/16
 	render(grid, bombs, true); //calls render, hands render 3 things: the built grid, the bombs count, and true for first run - Johney 09/16
@@ -743,7 +813,12 @@ window.addEventListener("load", () => {
 		{ value: "vsai", label: "Vs AI" }
 	];
 
+	// Each mode gets a sub-panel underneath it. Only the selected mode's panel is open:
+	// Vs AI holds the difficulty dropdown and auto-solve checkbox, and both 2 Player and
+	// Vs AI show the win-condition choice (moved there by refreshSubPanels()).
 	const subPanels = {}; // per-mode panel that holds that mode's extra options
+
+	// "AI difficulty" group: heading now, dropdown and checkbox are added further down.
 	const aiOptions = document.createElement("div");
 	aiOptions.className = "sub-group";
 	const aiHeading = document.createElement("div");
@@ -773,6 +848,8 @@ window.addEventListener("load", () => {
 		ruleOptions.appendChild(optionLabel);
 	});
 
+	// One radio button per game mode (Solo is selected by default). Choosing a mode
+	// updates selectedMode and opens that mode's sub-panel.
 	modeOptions.forEach((opt, idx) => {
 		const optionLabel = document.createElement("label");
 		optionLabel.className = "mode-option";
@@ -799,6 +876,8 @@ window.addEventListener("load", () => {
 		modeSelect.appendChild(choice);
 	});
 
+	// AI difficulty dropdown (defaults to MEDIUM) and the "AI plays automatically"
+	// checkbox, which turns Vs AI into a watch-the-AI-solve mode with no player turns.
 	const difficultySelect = document.createElement("select");
 	difficultySelect.className = "difficulty-select";
 	["easy", "medium", "hard"].forEach((level) => {
@@ -879,6 +958,8 @@ window.addEventListener("load", () => {
 	The querySelectorAll() cleanup performed immediately before startup().
 	*/
 
+	// START button: checks the mine count, hides the title art and menu, then calls
+	// startup() with the menu choices (mode, difficulty, auto-solve, win condition).
 	button.addEventListener("click", () => {
 		if(input.value>=10 && input.value<=20){
 			document.querySelectorAll(
@@ -1047,6 +1128,8 @@ function render(grid, bombs, first_run) {
 					}
 				}
 
+			// Left click = reveal. Ignored while the board is locked (AI's turn / auto-solve)
+			// or if the tile is already revealed or flagged.
 			button.addEventListener("click", () => {
 				if (boardLocked || tile.isFlipped || tile.isFlagged) return; // ignore AI turns and no-op clicks
 
@@ -1054,6 +1137,9 @@ function render(grid, bombs, first_run) {
 
 				finishTurn(grid, bombs, result); // Added: also advances multiplayer/AI turns
 			});
+			// Right click = place or remove a flag. In 2-player games the flag is tagged with
+			// the player who placed it, and a player cannot remove the other player's flag.
+			// Flags are capped at the number of bombs.
 			button.addEventListener("contextmenu", (e) => {
 				// prevent the right click menu from actually opening - Daniel 09/15
 				e.preventDefault();
