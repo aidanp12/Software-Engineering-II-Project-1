@@ -1,0 +1,13 @@
+Team Meeting 9.25
+WHEN: Friday, September 25th @10:00am @Eaton 3001
+PURPOSE: Fourth team meeting, Peer Group Project Review/Discussion
+ATTENDANCE: Maxwell, Nathan, Warren, Aidan, Dillon, Fabri, Cyn (In person)
+
+ROLES:
+Project Manager/Tester: Nathan
+Documentation/Developer: Cyn
+Developer: Aidan
+Logger/Developer: Maxwell
+Tester: Warren, Fabri, Dillon
+
+The meeting was at 10:00 AM and lasted 30 minutes. We briefly discussed the group’s project that we were assigned to and what changes to make to the code, as well the custom feature to add: Multiplayer Mode. We also discussed/plan to discuss who is responsible for what role. Everyone’s role will be added here whenever they are finalized.

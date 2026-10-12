@@ -1,0 +1,13 @@
+Team Meeting 10.2
+WHEN: Friday, October 2nd @10:00am @Eaton 3001
+PURPOSE: Third team meeting, Peer Group Project Review/Discussion
+ATTENDANCE: Maxwell, Nathan, Warren, Aidan, Dillon, Fabri, Cyn (In person)
+
+ROLES:
+Project Manager/Documentation: Nathan
+Documentation: Cyn
+Developer: Aidan, Fabri, Dillon
+Logger/Developer: Maxwell
+Tester: Warren
+
+The meeting was at 10:00 AM and lasted 30 minutes. We discussed what everyone accomplished this week, how much time it took, and what the plan was for next week. We also briefly discussed deadlines for the current and next projects, as well as brainstormed for the next project. Ideas like prediction based apps, or things akin to/using machine learning. We also brainstormed over the programming language we are going to use.
