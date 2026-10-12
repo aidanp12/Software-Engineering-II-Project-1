@@ -6,21 +6,26 @@
 This program allows the user to play the popular Minesweeper game, from their web browser.  To win the game, the user must uncover all of the tiles without uncovering a tile with a hidden mine beneath it.  The numbers on flipped tiles indicate the number of mines hidden under the 8 tiles immediately surrounding it.
 
 ### Installation
-First, `git clone` this project’s repository onto your local machine–-no additional installation is required.  Using file explorer, navigate to the location where you downloaded the project, and open the HTML document with the web browser of your choice.  You will be brought to the main screen to begin the game.
+First, `git clone` this project’s repository onto your local machine–-no additional installation is required.  Using file explorer, navigate to the location where you downloaded the project, and open `index.html` with the web browser of your choice.  You will be brought to the main screen to begin the game.
 
 ### How to Play
-Enter the number of mines to be hidden underneath tiles on the gameboard.  Once the board appears, select tiles to uncover, using the number that appears on the flipped tile to aid in your gameplay strategy.  If a tile with a mine hidden beneath it is flipped, the user loses the game.
+Enter the number of mines to be hidden underneath tiles on the gameboard. Select which game play you want to play: Solo, 2 player, or vs. AI.  Once the board appears, select tiles to uncover, using the number that appears on the flipped tile to aid in your gameplay strategy.  In solo mode, clicking a mine results in an instant loss, while with two players it merely deducts the score.
 
-### Creators
-See the `TeamMembers.txt` document for more information on the contributors for this program.  All Team Meeting Logs and other documentation are included for reference. Documentation is in the `docs/` folder, including the original team's meeting logs (`docs/meeting-logs/project-1-original-team/`).
 
-### More Information
-Please see the Software Architecture document for more detailed information regarding data flow, more detailed game play logic, and how this project was designed.
+## Project 2: Maintenance 
 
-## Project 2: Maintenance & Extension
+### Project 2 Team
+**Project Lead:** Nathan Richardson
 
-This repository was forked and extended by a new maintenance team (see `TeamMembers.txt`
-for the original Project 1 authors) as part of an EECS 581/582-style
+**Development Team:** Aidan Prather, Dillon Figueredo, Fabrizio Gonzalez, Maxwell Phachanla
+
+**Testing:** Warren Tan
+
+**Documentation:** Cyn Tran
+
+All documentation can be found in the docs folder, both project 1 and 2 documentation included. `Software-Architecture-Design.docx` covers the core structure of the minesweeper program implemented by the project 1 team, while `Team 22- System Architecture Document v2.0.pdf` covers the changes made in project 2. `Project 2 Activity Log.pdf` details each task completed by group 22 and documents the total hours spent. The estimated time needed to complete was calculated by whomever claimed that ticket based of their expectations.
+
+This repository was forked and extended by a new maintenance team as part of an EECS 581
 "inherit-and-extend" assignment. Work happened on the `team-extension-ai-multiplayer`
 branch. The original Project 1 gameplay (setup, reveal, flag, win/lose) was verified
 and the first-click behavior was improved: the selected tile and its neighbors are
